@@ -117,11 +117,14 @@ func (metadata Metadata) Validate() error {
 		return fmt.Errorf("proposal base ref must be a branch")
 	}
 	for name, value := range map[string]string{
-		"base tree": metadata.BaseTreeSHA, "proposed tree": metadata.ProposedTreeSHA, "head commit": metadata.HeadCommitSHA,
+		"proposed tree": metadata.ProposedTreeSHA, "head commit": metadata.HeadCommitSHA,
 	} {
 		if !shaPattern.MatchString(value) {
 			return fmt.Errorf("invalid proposal %s SHA", name)
 		}
+	}
+	if metadata.BaseTreeSHA != "" && !shaPattern.MatchString(metadata.BaseTreeSHA) {
+		return fmt.Errorf("invalid proposal base tree SHA")
 	}
 	return nil
 }
@@ -150,12 +153,19 @@ func BranchPrefix(skillName, sourcePath string) string {
 	return "skill-linker/" + skillName + "-" + hex.EncodeToString(digest[:4])
 }
 
-func BranchName(prefix, treeSHA string, attempt int) string {
-	shortTree := treeSHA
+func BranchName(prefix, baseTreeSHA, proposedTreeSHA string, attempt int) string {
+	shortBase := "new"
+	if baseTreeSHA != "" {
+		shortBase = baseTreeSHA
+		if len(shortBase) > 12 {
+			shortBase = shortBase[:12]
+		}
+	}
+	shortTree := proposedTreeSHA
 	if len(shortTree) > 12 {
 		shortTree = shortTree[:12]
 	}
-	name := prefix + "/" + shortTree
+	name := prefix + "/" + shortBase + "-" + shortTree
 	if attempt > 1 {
 		name += fmt.Sprintf("-%d", attempt)
 	}

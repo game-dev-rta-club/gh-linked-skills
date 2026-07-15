@@ -120,7 +120,7 @@ func TestBranchPrefixIsStableAndScoped(t *testing.T) {
 	if !strings.HasPrefix(first, "skill-linker/sample-") {
 		t.Fatalf("prefix = %q", first)
 	}
-	branch := BranchName(first, strings.Repeat("a", 40), 2)
+	branch := BranchName(first, strings.Repeat("b", 40), strings.Repeat("a", 40), 2)
 	if !strings.HasPrefix(branch, first+"/") || !strings.HasSuffix(branch, "-2") {
 		t.Fatalf("branch = %q", branch)
 	}
