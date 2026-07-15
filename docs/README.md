@@ -22,6 +22,5 @@ Choose the page that matches what you want to do.
 - [Security policy](../SECURITY.md)
 - [Detailed implementation specifications](spec/3_Functions/index.md)
 
-The detailed specifications record the original implementation decisions and
-are currently written in Japanese. The user guide and CLI help are the English
-entry points for using the extension.
+The user guide and CLI help are the entry points for using the extension. The
+detailed specifications preserve implementation decisions for maintainers.
