@@ -4,6 +4,10 @@ Notable user-facing changes are recorded in this file.
 
 ## Unreleased
 
+## 0.5.3 - 2026-07-15
+
+- Assemble all assets and attestations in a draft before publishing the immutable release.
+
 ## 0.5.2 - 2026-07-15
 
 - Published release assets and the associated tag with GitHub release immutability enabled.
