@@ -4,6 +4,10 @@ Notable user-facing changes are recorded in this file.
 
 ## Unreleased
 
+## 0.5.2 - 2026-07-15
+
+- Published release assets and the associated tag with GitHub release immutability enabled.
+
 ## 0.5.1 - 2026-07-15
 
 - Added signed GitHub build provenance attestations and checksums for release assets.
