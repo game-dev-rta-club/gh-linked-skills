@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/source"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/source"
 )
 
 var lfsPointerSignature = []byte("version https://git-lfs.github.com/spec/v1\n")
@@ -25,7 +25,7 @@ func InstallSkill(target string, snapshot source.SkillSnapshot) error {
 	if err := os.MkdirAll(parent, 0o755); err != nil {
 		return fmt.Errorf("create skill parent directory: %w", err)
 	}
-	transaction, err := os.MkdirTemp(parent, ".gh-linked-skills-install-")
+	transaction, err := os.MkdirTemp(parent, ".gh-skill-linker-install-")
 	if err != nil {
 		return fmt.Errorf("create install staging directory: %w", err)
 	}

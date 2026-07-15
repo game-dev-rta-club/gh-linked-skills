@@ -11,10 +11,10 @@ import (
 	"sync"
 
 	"github.com/cli/go-gh/v2/pkg/api"
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/discovery"
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/skill"
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/source"
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/status"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/discovery"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/skill"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/source"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/status"
 )
 
 type Client struct {

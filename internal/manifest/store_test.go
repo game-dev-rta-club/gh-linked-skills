@@ -10,6 +10,12 @@ import (
 	"testing"
 )
 
+func TestCanonicalManifestFileName(t *testing.T) {
+	if FileName != ".gh-skill-linker.json" {
+		t.Fatalf("FileName = %q, want .gh-skill-linker.json", FileName)
+	}
+}
+
 func TestStoreListProjectReturnsManifestSkillsWithAbsolutePaths(t *testing.T) {
 	root := t.TempDir()
 	document := Document{

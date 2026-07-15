@@ -53,7 +53,7 @@ func TestReadSkillRejectsSymlink(t *testing.T) {
 
 func TestReadSkillRecognizesGeneratedMarkersBeforeParsingFrontmatter(t *testing.T) {
 	dir := t.TempDir()
-	content := "---\n<<<<<<< gh-linked-skills:local\nname: local\n||||||| gh-linked-skills:base:base\nname: base\n=======\nname: remote\n>>>>>>> gh-linked-skills:remote:remote\n---\n"
+	content := "---\n<<<<<<< gh-skill-linker:local\nname: local\n||||||| gh-skill-linker:base:base\nname: base\n=======\nname: remote\n>>>>>>> gh-skill-linker:remote:remote\n---\n"
 	writeTestFile(t, filepath.Join(dir, "SKILL.md"), content)
 
 	got, err := ReadSkill(dir)

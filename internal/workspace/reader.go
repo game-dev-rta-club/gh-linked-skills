@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/syncstate"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/syncstate"
 )
 
 var (

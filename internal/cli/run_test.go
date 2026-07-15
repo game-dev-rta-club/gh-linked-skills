@@ -7,15 +7,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/discovery"
-	installapp "github.com/game-dev-rta-club/gh-linked-skills/internal/install"
-	publishapp "github.com/game-dev-rta-club/gh-linked-skills/internal/publish"
-	pullapp "github.com/game-dev-rta-club/gh-linked-skills/internal/pull"
-	pushapp "github.com/game-dev-rta-club/gh-linked-skills/internal/push"
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/source"
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/status"
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/syncstate"
-	uninstallapp "github.com/game-dev-rta-club/gh-linked-skills/internal/uninstall"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/discovery"
+	installapp "github.com/game-dev-rta-club/gh-skill-linker/internal/install"
+	publishapp "github.com/game-dev-rta-club/gh-skill-linker/internal/publish"
+	pullapp "github.com/game-dev-rta-club/gh-skill-linker/internal/pull"
+	pushapp "github.com/game-dev-rta-club/gh-skill-linker/internal/push"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/source"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/status"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/syncstate"
+	uninstallapp "github.com/game-dev-rta-club/gh-skill-linker/internal/uninstall"
 )
 
 type fakePreflight struct{ err error }
@@ -157,10 +157,13 @@ func TestRunHelp(t *testing.T) {
 	if exitCode != 0 {
 		t.Fatalf("Run() exit code = %d, want 0", exitCode)
 	}
-	for _, want := range []string{"USAGE", "AVAILABLE COMMANDS", "EXAMPLES", "LEARN MORE", "gh linked-skills install OWNER/REPO", "publish", "uninstall"} {
+	for _, want := range []string{"USAGE", "AVAILABLE COMMANDS", "EXAMPLES", "LEARN MORE", "gh skill-linker install OWNER/REPO", "publish", "uninstall"} {
 		if !strings.Contains(stdout.String(), want) {
 			t.Errorf("stdout = %q, want %q", stdout.String(), want)
 		}
+	}
+	if strings.Contains(stdout.String(), "gh linked-skills") {
+		t.Fatalf("stdout = %q, want only the gh skill-linker command", stdout.String())
 	}
 	if strings.Contains(stdout.String(), "\n  skills ") {
 		t.Fatalf("stdout = %q, want no workflow skill command", stdout.String())
@@ -400,8 +403,8 @@ func TestRunPullReportsManualConflictAsOperationFailure(t *testing.T) {
 		"CONFLICT (content): Merge conflict in .agents/skills/sample/SKILL.md",
 		"CONFLICT (content): Merge conflict in .agents/skills/sample/notes.md",
 		"Pull completed with conflicts; fix them in the working tree.",
-		"gh linked-skills status",
-		"gh linked-skills push sample",
+		"gh skill-linker status",
+		"gh skill-linker push sample",
 	} {
 		if !strings.Contains(stderr.String(), want) {
 			t.Errorf("stderr = %q, want %q", stderr.String(), want)

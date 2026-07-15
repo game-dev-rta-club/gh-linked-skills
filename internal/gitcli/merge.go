@@ -17,7 +17,7 @@ func (c *Client) MergeFile(
 	baseSHA string,
 	remoteSHA string,
 ) ([]byte, bool, error) {
-	directory, err := os.MkdirTemp("", "gh-linked-skills-merge-")
+	directory, err := os.MkdirTemp("", "gh-skill-linker-merge-")
 	if err != nil {
 		return nil, false, fmt.Errorf("create merge directory: %w", err)
 	}
@@ -34,9 +34,9 @@ func (c *Client) MergeFile(
 	_, stderr, runErr := c.runner.Run(
 		ctx,
 		"merge-file", "--diff3",
-		"-L", "gh-linked-skills:local",
-		"-L", "gh-linked-skills:base:"+baseSHA,
-		"-L", "gh-linked-skills:remote:"+remoteSHA,
+		"-L", "gh-skill-linker:local",
+		"-L", "gh-skill-linker:base:"+baseSHA,
+		"-L", "gh-skill-linker:remote:"+remoteSHA,
 		localPath, basePath, remotePath,
 	)
 	conflict := false

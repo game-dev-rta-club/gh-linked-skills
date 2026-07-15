@@ -6,10 +6,10 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/command"
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/gitcli"
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/source"
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/workspace"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/command"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/gitcli"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/source"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/workspace"
 )
 
 func TestThreeWayMergesNonOverlappingTextChanges(t *testing.T) {
@@ -60,7 +60,7 @@ func TestThreeWayLeavesMarkersForOverlappingTextChanges(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ThreeWay() error = %v", err)
 	}
-	if len(conflictPaths) != 1 || conflictPaths[0] != "notes.txt" || !bytes.Contains(merged.Files["notes.txt"], []byte("<<<<<<< gh-linked-skills:local")) {
+	if len(conflictPaths) != 1 || conflictPaths[0] != "notes.txt" || !bytes.Contains(merged.Files["notes.txt"], []byte("<<<<<<< gh-skill-linker:local")) {
 		t.Fatalf("conflict paths = %v, notes = %q", conflictPaths, merged.Files["notes.txt"])
 	}
 }
@@ -78,7 +78,7 @@ func TestThreeWayLeavesMarkersForSkillDocumentConflict(t *testing.T) {
 	if len(conflictPaths) != 1 || conflictPaths[0] != "SKILL.md" {
 		t.Fatalf("ThreeWay() conflict paths = %v, want SKILL.md", conflictPaths)
 	}
-	if !bytes.Contains(merged.Files["SKILL.md"], []byte("<<<<<<< gh-linked-skills:local")) {
+	if !bytes.Contains(merged.Files["SKILL.md"], []byte("<<<<<<< gh-skill-linker:local")) {
 		t.Fatalf("merged document has no marker:\n%s", merged.Files["SKILL.md"])
 	}
 }
@@ -176,7 +176,7 @@ func TestThreeWayWritesMarkersForSkillFrontmatterConflict(t *testing.T) {
 
 	merged, conflictPaths, err := ThreeWay(context.Background(), gitcli.New(command.New("git")), base, local, remote)
 
-	if err != nil || len(conflictPaths) != 1 || conflictPaths[0] != "SKILL.md" || !bytes.Contains(merged.Files["SKILL.md"], []byte("<<<<<<< gh-linked-skills:local")) {
+	if err != nil || len(conflictPaths) != 1 || conflictPaths[0] != "SKILL.md" || !bytes.Contains(merged.Files["SKILL.md"], []byte("<<<<<<< gh-skill-linker:local")) {
 		t.Fatalf("ThreeWay() merged=%q conflict paths=%v error=%v, want markers", merged.Files["SKILL.md"], conflictPaths, err)
 	}
 }

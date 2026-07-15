@@ -9,7 +9,7 @@ last synchronized revision. Branch sources can pull and push changes; tag
 sources remain fixed and read-only.
 
 USAGE
-  gh linked-skills <command> [flags]
+  gh skill-linker <command> [flags]
 
 AVAILABLE COMMANDS
   install   Discover and install managed skills from a repository
@@ -24,27 +24,27 @@ INHERITED FLAGS
 
 EXAMPLES
   # List skills available in a repository
-  $ gh linked-skills install OWNER/REPO --branch BRANCH
+  $ gh skill-linker install OWNER/REPO --branch BRANCH
 
   # Install one skill and inspect its synchronization state
-  $ gh linked-skills install OWNER/REPO SKILL --branch BRANCH
+  $ gh skill-linker install OWNER/REPO SKILL --branch BRANCH
 
   # Publish a new local skill and begin managing it
-  $ gh linked-skills publish OWNER/REPO SKILL --branch BRANCH
+  $ gh skill-linker publish OWNER/REPO SKILL --branch BRANCH
 
   # Install a fixed, read-only tag snapshot
-  $ gh linked-skills install OWNER/REPO SKILL --tag TAG
-  $ gh linked-skills status
+  $ gh skill-linker install OWNER/REPO SKILL --tag TAG
+  $ gh skill-linker status
 
   # Synchronize one managed skill
-  $ gh linked-skills pull SKILL
-  $ gh linked-skills push SKILL
+  $ gh skill-linker pull SKILL
+  $ gh skill-linker push SKILL
 
   # Remove one managed skill from this project
-  $ gh linked-skills uninstall SKILL
+  $ gh skill-linker uninstall SKILL
 
 LEARN MORE
-  Use gh linked-skills <command> --help for more information about a command.
+  Use gh skill-linker <command> --help for more information about a command.
 `
 
 const publishHelp = `Publish one unmanaged project Agent Skill to an existing GitHub repository.
@@ -52,14 +52,14 @@ const publishHelp = `Publish one unmanaged project Agent Skill to an existing Gi
 The repository, local skill, and source branch are required. The local skill
 must exist at .agents/skills/<name> and must not already be managed. Publish
 writes it to skills/<name> in the repository and records the source in
-.gh-linked-skills.json.
+.gh-skill-linker.json.
 
 An empty repository is initialized with the explicit branch. In a non-empty
 repository, the branch must already exist. Existing different content is never
 overwritten. Exact existing content is linked without creating a commit.
 
 USAGE
-  gh linked-skills publish OWNER/REPO SKILL --branch BRANCH
+  gh skill-linker publish OWNER/REPO SKILL --branch BRANCH
 
 ARGUMENTS
   OWNER/REPO   Existing GitHub repository that will own the skill
@@ -71,10 +71,10 @@ FLAGS
   -h, --help            Show help for command
 
 EXAMPLES
-  $ gh linked-skills publish nikollson/agent-skills my-skill --branch main
+  $ gh skill-linker publish nikollson/agent-skills my-skill --branch main
 
 LEARN MORE
-  Run gh linked-skills status after publishing.
+  Run gh skill-linker status after publishing.
 `
 
 const installHelp = `Discover, install, and re-pin Agent Skills from an explicit GitHub repository.
@@ -82,7 +82,7 @@ const installHelp = `Discover, install, and re-pin Agent Skills from an explicit
 The repository and exactly one source branch or tag are required. Local and
 repository-less installation is not supported.
 Installed skills are copied to .agents/skills and linked to their source in
-.gh-linked-skills.json. Without SKILL, PATH, or --all, the command lists
+.gh-skill-linker.json. Without SKILL, PATH, or --all, the command lists
 discovered skills without installing them.
 
 Branch-backed skills support later pull and push operations. Tag-backed skills
@@ -91,13 +91,13 @@ and a different tag to re-pin a clean tag-backed skill. Local changes are never
 merged or discarded during re-pin.
 
 USAGE
-  gh linked-skills install OWNER/REPO --branch BRANCH
-  gh linked-skills install OWNER/REPO SKILL --branch BRANCH
-  gh linked-skills install OWNER/REPO PATH --branch BRANCH
-  gh linked-skills install OWNER/REPO --all --branch BRANCH
-  gh linked-skills install OWNER/REPO SKILL --tag TAG
-  gh linked-skills install OWNER/REPO PATH --tag TAG
-  gh linked-skills install OWNER/REPO --all --tag TAG
+  gh skill-linker install OWNER/REPO --branch BRANCH
+  gh skill-linker install OWNER/REPO SKILL --branch BRANCH
+  gh skill-linker install OWNER/REPO PATH --branch BRANCH
+  gh skill-linker install OWNER/REPO --all --branch BRANCH
+  gh skill-linker install OWNER/REPO SKILL --tag TAG
+  gh skill-linker install OWNER/REPO PATH --tag TAG
+  gh skill-linker install OWNER/REPO --all --tag TAG
 
 ARGUMENTS
   OWNER/REPO   GitHub repository that owns the skill
@@ -116,21 +116,21 @@ FLAGS
 
 EXAMPLES
   # List available skills
-  $ gh linked-skills install obra/superpowers --branch main
+  $ gh skill-linker install obra/superpowers --branch main
 
   # Install by name or exact path
-  $ gh linked-skills install obra/superpowers brainstorming --branch main
-  $ gh linked-skills install obra/superpowers skills/brainstorming --branch main
+  $ gh skill-linker install obra/superpowers brainstorming --branch main
+  $ gh skill-linker install obra/superpowers skills/brainstorming --branch main
 
   # Install a fixed release or re-pin it to another tag
-  $ gh linked-skills install owner/skills skills/review --tag v1.0.0
-  $ gh linked-skills install owner/skills skills/review --tag v2.0.0
+  $ gh skill-linker install owner/skills skills/review --tag v1.0.0
+  $ gh skill-linker install owner/skills skills/review --tag v2.0.0
 
   # Install every discovered skill
-  $ gh linked-skills install obra/superpowers --all --branch main
+  $ gh skill-linker install obra/superpowers --all --branch main
 
 LEARN MORE
-  Run gh linked-skills status after installation.
+  Run gh skill-linker status after installation.
 `
 
 const statusHelp = `Show synchronization and operation eligibility for project Agent Skills.
@@ -141,15 +141,15 @@ Local changes that cannot be pushed are reported as warnings.
 Tag-backed skills report pull and push as ineligible.
 
 USAGE
-  gh linked-skills status [--json]
+  gh skill-linker status [--json]
 
 FLAGS
       --json   Write machine-readable JSON
   -h, --help   Show help for command
 
 EXAMPLES
-  $ gh linked-skills status
-  $ gh linked-skills status --json
+  $ gh skill-linker status
+  $ gh skill-linker status --json
 `
 
 const pullHelp = `Pull one managed skill from its recorded repository and branch.
@@ -159,7 +159,7 @@ CONFLICT is written into the affected files with Git-style conflict markers.
 Resolve those files manually, then run status before pushing.
 
 USAGE
-  gh linked-skills pull SKILL
+  gh skill-linker pull SKILL
 
 ARGUMENTS
   SKILL   Managed skill name or project-relative path
@@ -168,8 +168,8 @@ INHERITED FLAGS
   -h, --help   Show help for command
 
 EXAMPLES
-  $ gh linked-skills pull brainstorming
-  $ gh linked-skills status
+  $ gh skill-linker pull brainstorming
+  $ gh skill-linker status
 `
 
 const pushHelp = `Push one managed skill to its recorded repository and branch.
@@ -178,7 +178,7 @@ Push requires repository write permission and a remote branch that has not
 changed since the last synchronization. Use status before pushing local changes.
 
 USAGE
-  gh linked-skills push SKILL
+  gh skill-linker push SKILL
 
 ARGUMENTS
   SKILL   Managed skill name or project-relative path
@@ -187,20 +187,20 @@ INHERITED FLAGS
   -h, --help   Show help for command
 
 EXAMPLES
-  $ gh linked-skills status
-  $ gh linked-skills push brainstorming
+  $ gh skill-linker status
+  $ gh skill-linker push brainstorming
 `
 
 const uninstallHelp = `Remove one managed Agent Skill from the current project.
 
-The skill directory and its entry in .gh-linked-skills.json are removed. The
+The skill directory and its entry in .gh-skill-linker.json are removed. The
 source repository is never changed. Local changes are rejected by default; use
 --force only when those changes may be discarded. A missing skill directory is
 cleaned up by removing its stale management entry. GitHub authentication and a
 network connection are not required.
 
 USAGE
-  gh linked-skills uninstall SKILL [--force]
+  gh skill-linker uninstall SKILL [--force]
 
 ARGUMENTS
   SKILL   Managed skill name or project-relative path
@@ -210,8 +210,8 @@ FLAGS
   -h, --help    Show help for command
 
 EXAMPLES
-  $ gh linked-skills uninstall brainstorming
-  $ gh linked-skills uninstall .agents/skills/brainstorming --force
+  $ gh skill-linker uninstall brainstorming
+  $ gh skill-linker uninstall .agents/skills/brainstorming --force
 `
 
 func requestedHelp(args []string) (string, bool, error) {
@@ -223,7 +223,7 @@ func requestedHelp(args []string) (string, bool, error) {
 			return rootHelp, true, nil
 		}
 		if len(args) != 2 {
-			return "", true, fmt.Errorf("usage: gh linked-skills help [command]")
+			return "", true, fmt.Errorf("usage: gh skill-linker help [command]")
 		}
 		help, ok := commandHelp(args[1])
 		if !ok {

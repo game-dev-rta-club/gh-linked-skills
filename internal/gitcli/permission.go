@@ -12,7 +12,7 @@ func (c *Client) CanPush(ctx context.Context, repositoryURL, branch string) (boo
 	if repositoryURL == "" || branch == "" || strings.HasPrefix(branch, "-") {
 		return false, fmt.Errorf("repository URL and valid branch are required")
 	}
-	directory, err := os.MkdirTemp("", "gh-linked-skills-permission-")
+	directory, err := os.MkdirTemp("", "gh-skill-linker-permission-")
 	if err != nil {
 		return false, fmt.Errorf("create permission probe directory: %w", err)
 	}

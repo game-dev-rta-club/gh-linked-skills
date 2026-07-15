@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/command"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/command"
 )
 
 func TestMergeFileCombinesNonOverlappingChanges(t *testing.T) {
@@ -45,10 +45,10 @@ func TestMergeFileLeavesDiff3Markers(t *testing.T) {
 		t.Fatal("MergeFile() conflict = false, want true")
 	}
 	for _, want := range []string{
-		"<<<<<<< gh-linked-skills:local",
-		"||||||| gh-linked-skills:base:base-sha",
+		"<<<<<<< gh-skill-linker:local",
+		"||||||| gh-skill-linker:base:base-sha",
 		"=======",
-		">>>>>>> gh-linked-skills:remote:remote-sha",
+		">>>>>>> gh-skill-linker:remote:remote-sha",
 	} {
 		if !strings.Contains(string(merged), want) {
 			t.Fatalf("merged = %q, want marker %q", merged, want)
@@ -70,7 +70,7 @@ func TestMergeFileHandlesMultipleConflicts(t *testing.T) {
 	if !conflict {
 		t.Fatal("MergeFile() conflict = false, want true")
 	}
-	if got := strings.Count(string(merged), "<<<<<<< gh-linked-skills:local"); got != 2 {
+	if got := strings.Count(string(merged), "<<<<<<< gh-skill-linker:local"); got != 2 {
 		t.Fatalf("conflict marker count = %d, want 2\nmerged = %q", got, merged)
 	}
 }

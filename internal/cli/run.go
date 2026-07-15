@@ -11,21 +11,21 @@ import (
 	"text/tabwriter"
 
 	"github.com/cli/go-gh/v2/pkg/auth"
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/command"
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/compat"
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/discovery"
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/gitcli"
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/githubapi"
-	installapp "github.com/game-dev-rta-club/gh-linked-skills/internal/install"
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/manifest"
-	publishapp "github.com/game-dev-rta-club/gh-linked-skills/internal/publish"
-	pullapp "github.com/game-dev-rta-club/gh-linked-skills/internal/pull"
-	pushapp "github.com/game-dev-rta-club/gh-linked-skills/internal/push"
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/source"
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/status"
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/syncstate"
-	uninstallapp "github.com/game-dev-rta-club/gh-linked-skills/internal/uninstall"
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/workspace"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/command"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/compat"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/discovery"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/gitcli"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/githubapi"
+	installapp "github.com/game-dev-rta-club/gh-skill-linker/internal/install"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/manifest"
+	publishapp "github.com/game-dev-rta-club/gh-skill-linker/internal/publish"
+	pullapp "github.com/game-dev-rta-club/gh-skill-linker/internal/pull"
+	pushapp "github.com/game-dev-rta-club/gh-skill-linker/internal/push"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/source"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/status"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/syncstate"
+	uninstallapp "github.com/game-dev-rta-club/gh-skill-linker/internal/uninstall"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/workspace"
 )
 
 type StatusPreflight interface {
@@ -259,7 +259,7 @@ func runUninstall(
 ) int {
 	request, err := parseUninstallArgs(args)
 	if err != nil {
-		_, _ = fmt.Fprintln(stderr, "usage: gh linked-skills uninstall SKILL [--force]")
+		_, _ = fmt.Fprintln(stderr, "usage: gh skill-linker uninstall SKILL [--force]")
 		_, _ = fmt.Fprintln(stderr, err)
 		return 2
 	}
@@ -340,7 +340,7 @@ func runPublish(
 	stderr io.Writer,
 	dependencies Dependencies,
 ) int {
-	const usage = "usage: gh linked-skills publish OWNER/REPO SKILL --branch BRANCH"
+	const usage = "usage: gh skill-linker publish OWNER/REPO SKILL --branch BRANCH"
 	request, err := parsePublishArgs(args)
 	if err != nil {
 		_, _ = fmt.Fprintln(stderr, usage)
@@ -383,7 +383,7 @@ func runInstall(
 	stderr io.Writer,
 	dependencies Dependencies,
 ) int {
-	const installUsage = "usage: gh linked-skills install OWNER/REPO [SKILL|PATH | --all] (--branch BRANCH | --tag TAG)"
+	const installUsage = "usage: gh skill-linker install OWNER/REPO [SKILL|PATH | --all] (--branch BRANCH | --tag TAG)"
 	request, err := parseInstallArgs(args)
 	if err != nil {
 		_, _ = fmt.Fprintln(stderr, installUsage)
@@ -555,7 +555,7 @@ func runPush(
 	dependencies Dependencies,
 ) int {
 	if len(args) != 1 || args[0] == "" {
-		_, _ = fmt.Fprintln(stderr, "usage: gh linked-skills push <skill>")
+		_, _ = fmt.Fprintln(stderr, "usage: gh skill-linker push <skill>")
 		return 2
 	}
 	if dependencies.Preflight == nil || dependencies.Root == nil || dependencies.Push == nil {
@@ -592,7 +592,7 @@ func runPull(
 	dependencies Dependencies,
 ) int {
 	if len(args) != 1 || args[0] == "" {
-		_, _ = fmt.Fprintln(stderr, "usage: gh linked-skills pull <skill>")
+		_, _ = fmt.Fprintln(stderr, "usage: gh skill-linker pull <skill>")
 		return 2
 	}
 	if dependencies.Preflight == nil || dependencies.Root == nil || dependencies.Pull == nil {
@@ -620,9 +620,9 @@ func runPull(
 			}
 			_, _ = fmt.Fprintln(stderr, "Pull completed with conflicts; fix them in the working tree.")
 			_, _ = fmt.Fprintln(stderr, "After resolving, run:")
-			_, _ = fmt.Fprintln(stderr, "  gh linked-skills status")
+			_, _ = fmt.Fprintln(stderr, "  gh skill-linker status")
 			_, _ = fmt.Fprintln(stderr, "If STATE is push, run:")
-			_, _ = fmt.Fprintf(stderr, "  gh linked-skills push %s\n", skillName)
+			_, _ = fmt.Fprintf(stderr, "  gh skill-linker push %s\n", skillName)
 			return 1
 		}
 		_, _ = fmt.Fprintln(stderr, err)
@@ -649,7 +649,7 @@ func runStatus(
 	case len(args) == 1 && args[0] == "--json":
 		jsonOutput = true
 	default:
-		_, _ = fmt.Fprintf(stderr, "usage: gh linked-skills status [--json]\n")
+		_, _ = fmt.Fprintf(stderr, "usage: gh skill-linker status [--json]\n")
 		return 2
 	}
 	if dependencies.Preflight == nil || dependencies.Root == nil || dependencies.Status == nil {

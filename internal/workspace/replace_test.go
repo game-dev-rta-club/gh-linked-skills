@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/source"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/source"
 )
 
 func TestReplaceExactAtomicallyPreservesBytesAndModes(t *testing.T) {
