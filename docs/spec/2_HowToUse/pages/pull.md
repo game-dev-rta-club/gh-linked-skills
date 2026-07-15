@@ -1,34 +1,35 @@
 ---
 title: Pulling a managed skill
-updated: 2026-07-13
+updated: 2026-07-15
 status: implemented
 ---
 
 # Pull
 
-Sourceの変更をlocalへ取り込む。Local変更があれば、前回の同期時点をbaseにmergeする。
+Bring source changes into the local skill. If local content also changed, the
+command merges both sides from the last synchronized baseline.
 
 ```bash
 gh linked-skills pull <skill-name|project-relative-path>
 ```
 
-条件: manifest管理済み、local fileがGit indexへ登録済み、未解決conflictなし。
+The skill must be managed by the manifest, every local file must be tracked in
+the Git index, and no unresolved conflict may remain. The rest of the parent
+project does not need to be clean.
 
-親project全体がcleanである必要はない。
+- no local changes: update to the source
+- local changes: perform a three-way merge
+- identical snapshot: update only the baseline
 
-- local変更なし: sourceへ更新
-- local変更あり: three-way merge
-- 同一snapshot: baselineのみ更新
+## When a conflict occurs
 
-## Conflictになった場合
+Text conflicts leave the competing content in the affected file. See
+[Resolving conflicts](resolve-conflicts.md). Binary or structural conflicts stop
+without changing the affected file.
 
-Text conflictはfileへ比較内容を残す。解決方法は[[docs/spec/2_HowToUse/pages/resolve-conflicts|Conflict解決]]を参照。
-
-Binary/構造conflictは変更せず停止する。
-
-成功時の表示:
+Success output:
 
 - `pulled <path> to <tree-sha>`
 - `<path> is already up to date`
 
-内部: [[docs/spec/3_Functions/pages/operations/pull|Pull spec]]
+Implementation: [Pull operation](../../3_Functions/pages/operations/pull.md)

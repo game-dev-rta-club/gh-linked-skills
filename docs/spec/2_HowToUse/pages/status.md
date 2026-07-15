@@ -1,20 +1,20 @@
 ---
 title: Checking synchronization health
-updated: 2026-07-13
+updated: 2026-07-15
 status: implemented
 ---
 
 # Status
 
-Stateは差分の方向、PULL/PUSH eligibilityは操作可能かを表す。
-
-Manifestへ登録されたskillだけを表示する。
+`STATE` shows the direction of differences. `PULL` and `PUSH` show whether each
+operation is currently available. Only skills registered in the manifest are
+shown.
 
 ```bash
 gh linked-skills status
 ```
 
-出力例:
+Example:
 
 ```text
 SKILL          PATH                                STATE     PULL                              PUSH
@@ -25,43 +25,45 @@ idea-refine    .agents/skills/idea-refine          conflict  ineligible (unresol
 release-skill  .agents/skills/release-skill        clean     ineligible (fixed_source_ref)      ineligible (source_ref_read_only)
 ```
 
-- `STATE`: localとsourceの差分方向
-- `PULL` / `PUSH`: commandを実行できるか
-- 括弧内: 実行できない理由
+- `STATE`: direction of differences between local and source
+- `PULL` / `PUSH`: whether the command can run
+- parenthesized value: reason an operation cannot run
 
-| State | 意味 | 操作 |
+| State | Meaning | Action |
 | --- | --- | --- |
-| `clean` | 差分なし | なし |
-| `pull` | source変更 | pull |
-| `push` | local変更 | push |
-| `conflict` | localとsourceの両方が変更 / 未解決箇所あり | 未解決箇所がfileにあれば編集。それ以外はpull |
+| `clean` | No difference | None |
+| `pull` | Source changed | Pull |
+| `push` | Local content changed | Push |
+| `conflict` | Both sides changed or unresolved markers remain | Edit files with markers; otherwise pull |
 
-Sourceのtree SHAがbaselineと異なれば、contentが同じでも`pull`を優先する。
+When the source tree SHA differs from the baseline, `pull` takes precedence
+even if file content is identical.
 
-| Reason | 対応 |
+| Reason | Response |
 | --- | --- |
-| `invalid_local_skill` | `SKILL.md`またはfrontmatterを修復 |
-| `unsafe_local_path` | pathを修復 |
-| `unsupported_local_file` | regular fileへ変更 |
-| `unsupported_host` / `invalid_source_repository` | sourceを確認 |
-| `unresolved_conflict` | file内の競合表示を解消 |
-| `source_unavailable` | network/認証/sourceを確認 |
-| `git_inventory_unknown` | Git状態を確認 |
-| `untracked_files` | Git indexへ登録 |
-| `ignored_files` | untrackedかつignoredのfileをtrackするかignore対象外へ変更 |
-| `permission_unknown` | network/認証/repositoryを確認 |
-| `repository_read_only` | pull専用で使用 |
-| `remote_changed` | pullを先に実行 |
-| `fixed_source_ref` | tag固定。変更時は別tagで再install |
-| `source_ref_read_only` | tag固定。sourceへpushしない |
-| `tag_moved` | 自動適用しない。同じtagを受け入れる場合だけ`--accept-moved-tag`で再install |
+| `invalid_local_skill` | Repair `SKILL.md` or its frontmatter |
+| `unsafe_local_path` | Repair the path |
+| `unsupported_local_file` | Replace it with a regular file |
+| `unsupported_host` / `invalid_source_repository` | Check the source |
+| `unresolved_conflict` | Resolve conflict markers in the file |
+| `source_unavailable` | Check network, authentication, and source availability |
+| `git_inventory_unknown` | Check Git state |
+| `untracked_files` | Add files to the Git index |
+| `ignored_files` | Track ignored untracked files or remove the ignore rule |
+| `permission_unknown` | Check network, authentication, and repository access |
+| `repository_read_only` | Use the source for pull-only operation |
+| `remote_changed` | Pull before pushing |
+| `fixed_source_ref` | The tag is fixed; reinstall from a different tag to change it |
+| `source_ref_read_only` | The tag is fixed and cannot receive a push |
+| `tag_moved` | Reinstall with `--accept-moved-tag` only if you trust the moved tag |
 
-`ineligible`は実行不可、`unknown`は判定失敗。
+`ineligible` means the operation cannot run. `unknown` means the check failed.
 
-`eligible`は事前条件を満たすという意味で、GitHubが実際のpushを受理する保証ではない。
+`eligible` confirms preconditions only; it does not guarantee GitHub will
+accept a push.
 
-JSON: `gh linked-skills status --json`
+JSON output: `gh linked-skills status --json`
 
-競合表示の編集: [[docs/spec/2_HowToUse/pages/resolve-conflicts|Conflict解決]]
+See [Resolving conflicts](resolve-conflicts.md) for marker editing.
 
-内部: [[docs/spec/3_Functions/pages/operations/status|Status spec]]
+Implementation: [Status operation](../../3_Functions/pages/operations/status.md)

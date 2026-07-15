@@ -1,14 +1,16 @@
 ---
 title: Resolving conflicts manually
-updated: 2026-07-13
+updated: 2026-07-15
 status: implemented
 ---
 
-# Conflict解決
+# Resolve conflicts
 
-Localとsourceが同じ行を別々に変更した場合、どちらを残すかはtoolでは決められない。
+When local and source content change the same line differently, the extension
+cannot decide which version to keep.
 
-このとき`pull`は自動選択せず、local・前回同期・sourceの内容を実際のskill fileへ書き込む。
+`pull` does not choose automatically. It writes the local, last synchronized,
+and current source content into the actual skill file.
 
 ```text
 CONFLICT (content): Merge conflict in .agents/skills/sample/SKILL.md
@@ -19,42 +21,48 @@ If STATE is push, run:
   gh linked-skills push sample
 ```
 
-これはGitのconflictと同じ考え方である。Exit code `1`はrollbackを意味せず、「working treeへmerge結果を書いたが、手動解決が残っている」ことを表す。
+This follows Git conflict behavior. Exit code `1` does not mean the operation
+rolled back. It means the merge result was written to the working tree and
+manual resolution remains.
 
-## Fileに書かれる内容
+## Content written to the file
 
 > ```text
 > <<<<<<< gh-linked-skills:local
-> title: Localで編集した文
+> title: Text edited locally
 > ||||||| gh-linked-skills:base:<tree-sha>
-> title: 前回同期した文
+> title: Text from the last synchronization
 > =======
-> title: Sourceで更新された文
+> title: Text updated at the source
 > >>>>>>> gh-linked-skills:remote:<tree-sha>
 > ```
 
-- `local`: project内で編集した内容
-- `base`: 前回同期した内容
-- `remote`: 現在のsourceにある内容
+- `local`: content edited in the project
+- `base`: content from the last synchronization
+- `remote`: content currently at the source
 
-`<<<<<<<`、`|||||||`、`=======`、`>>>>>>>`で始まる区切り行をconflict markerと呼ぶ。
+Lines beginning with `<<<<<<<`, `|||||||`, `=======`, and `>>>>>>>` are conflict
+markers.
 
-## 解決する
+## Resolve the conflict
 
-1. `<<<<<<< gh-linked-skills:local`をproject内で検索する
-2. local、前回同期、sourceを比較する
-3. 残したい内容へ書き直す
-4. 4種類の区切り行と不要な内容を全て削除する
-5. `gh linked-skills status`で確認する
+1. Search the project for `<<<<<<< gh-linked-skills:local`.
+2. Compare local, last synchronized, and source content.
+3. Rewrite the file with the content you want to keep.
+4. Remove all four marker types and unwanted content.
+5. Run `gh linked-skills status`.
 
-たとえば最終的に次だけを残す。
+For example, the final file may contain only:
 
 ```text
-title: Localとsourceを踏まえた最終文
+title: Final text combining the useful local and source changes
 ```
 
-Sourceと同じ内容にすると`clean`、localまたは両方を組み合わせた内容を残すと`push`になる。`push`なら表示されたcommandでsourceへ戻す。再pullは不要。
+Content identical to the source produces `clean`. Keeping local content or a
+combination of both sides produces `push`; use the displayed command to return
+it to the source. You do not need to pull again.
 
-Binary、modify/delete、file/directory conflictではfileを変更せず停止する。
+Binary, modify/delete, and file/directory conflicts stop without changing the
+file.
 
-内部: [[docs/spec/3_Functions/pages/operations/conflict-merge|Merge spec]]
+Implementation: [Conflict merge](../../3_Functions/pages/operations/conflict-merge.md)

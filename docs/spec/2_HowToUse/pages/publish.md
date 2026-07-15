@@ -1,31 +1,38 @@
 ---
 title: Publishing an unmanaged skill
-updated: 2026-07-14
+updated: 2026-07-15
 status: implemented
 ---
 
 # Publish
 
-Projectで作った未管理skillを、既存GitHub repositoryへ初回公開して管理を始める。
+Publish an unmanaged skill created in the current project to an existing
+GitHub repository, then begin managing it.
 
 ```bash
 gh linked-skills publish OWNER/REPO SKILL --branch BRANCH
 ```
 
-前提:
+Requirements:
 
-- localは`.agents/skills/<name>`
-- repositoryはGitHub上で作成済み
-- repositoryへのpush権限がある
-- `BRANCH`を明示する
-- skillはmanifestに未登録
+- the local skill is at `.agents/skills/<name>`
+- the repository already exists on GitHub
+- you have push permission for the repository
+- `BRANCH` is explicit
+- the skill is not registered in the manifest
 
-Remote pathは`skills/<name>`。空repositoryでは指定branchを最初のcommitで作る。非空repositoryではbranchが必要。
+The remote path is `skills/<name>`. For an empty repository, the first commit
+creates the requested branch. A non-empty repository must already contain the
+branch.
 
-Remote pathが存在しなければcommitしてnormal pushする。内容が完全一致すればpushせずmanifestへ登録する。異なる内容は上書きしない。
+If the remote path does not exist, the command commits the skill and performs a
+normal push. If remote content is identical, it registers the skill without a
+push. It never overwrites different existing content.
 
-管理済みskillはpublishできない。同じsourceの更新は`push`を使う。別repositoryへの移行、複製、repository作成は扱わない。
+An already managed skill cannot be published. Use `push` to update the same
+source. The command does not migrate or copy skills to another repository, and
+it does not create repositories.
 
-成功後は`.gh-linked-skills.json`も親projectへcommitする。
+After success, commit `.gh-linked-skills.json` in the parent project.
 
-内部: [[docs/spec/3_Functions/pages/operations/publish|Publish spec]]
+Implementation: [Publish operation](../../3_Functions/pages/operations/publish.md)

@@ -6,20 +6,26 @@ status: implemented
 
 # Uninstall
 
-Managed skillを現在のprojectから削除する。Source repositoryは変更しない。
+Remove a managed skill from the current project without changing its source
+repository.
 
 ```bash
 gh linked-skills uninstall SKILL
 ```
 
-`SKILL`はskill名、または`.agents/skills/<name>`。Localが最後の同期点と一致する場合、skill directoryとmanifest entryを削除する。
+`SKILL` may be a skill name or `.agents/skills/<name>`. When local content
+matches the last synchronized baseline, the command removes the skill directory
+and manifest entry.
 
-Local変更は誤削除を避けるため拒否する。変更を破棄する場合だけ明示する。
+To prevent accidental deletion, the command rejects local changes. Use the
+force option only when you explicitly want to discard them.
 
 ```bash
 gh linked-skills uninstall SKILL --force
 ```
 
-Skill directoryが既に無い場合は、残ったmanifest entryだけ削除する。GitHub認証とnetwork接続は使わない。
+If the skill directory is already missing, the command removes the remaining
+manifest entry. Uninstall does not use GitHub authentication or a network
+connection.
 
-内部: [[docs/spec/3_Functions/pages/operations/uninstall|Uninstall operation]]
+Implementation: [Uninstall operation](../../3_Functions/pages/operations/uninstall.md)

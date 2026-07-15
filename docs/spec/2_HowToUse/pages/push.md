@@ -1,30 +1,36 @@
 ---
 title: Pushing a managed skill
-updated: 2026-07-13
+updated: 2026-07-15
 status: implemented
 ---
 
 # Push
 
-Projectで改善したskillを、install時に指定したsource branchへ戻す。
+Return an improved local skill to the source branch selected during install.
 
 ```bash
 gh linked-skills push <skill-name|project-relative-path>
 ```
 
-条件: repositoryへのpush権限、source skillのtreeが未変更、validな`SKILL.md`、markerなし、全fileがtrackedまたはuntracked non-ignored。
+The repository must be writable, the source skill tree must be unchanged, the
+local `SKILL.md` must be valid and free of conflict markers, and every file must
+be tracked or untracked but not ignored.
 
-同じbranchへ通常commitをpushする。force pushとPR作成はしない。Source skillのtreeが変わっていればpullを要求する。同じbranchの別pathだけが変わった場合は妨げない。
+The command creates a normal commit on the same branch and pushes without
+force. If the source skill changed, it asks you to pull first. A change to a
+different path on the same branch does not block the push.
 
-`status`の`eligible`は事前判定であり、branch protectionやrulesetによる最終拒否までは保証しない。
+`eligible` from `status` means the preconditions are satisfied. It does not
+guarantee that GitHub branch protection or rulesets will accept the push.
 
-Source repositoryのskillだけをcommitする。親projectのcommit/pushは行わない。
+Only source-repository skill files are committed. The command does not commit
+or push the parent project.
 
-read-only skillはpullのみ。local変更はstatusで警告する。
+A read-only skill can only be pulled. `status` still reports local changes.
 
-成功時の表示:
+Success output:
 
 - `pushed <path> to <tree-sha>`
 - `<path> has no source changes to push`
 
-内部: [[docs/spec/3_Functions/pages/operations/push|Push spec]]
+Implementation: [Push operation](../../3_Functions/pages/operations/push.md)
