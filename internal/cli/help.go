@@ -13,10 +13,10 @@ USAGE
 
 AVAILABLE COMMANDS
   install   Discover and install managed skills from a repository
-  publish   Publish an unmanaged local skill to a repository
+  publish   Publish or propose an unmanaged local skill to a repository
   status    Show project skill synchronization state
   pull      Pull one managed skill from its source branch
-  push      Push one managed skill to its source branch
+  push      Push one managed skill directly or propose it with a pull request
   uninstall Remove one managed skill from the current project
 
 INHERITED FLAGS
@@ -32,6 +32,9 @@ EXAMPLES
   # Publish a new local skill and begin managing it
   $ gh skill-linker publish OWNER/REPO SKILL --branch BRANCH
 
+  # Propose a new skill through a pull request
+  $ gh skill-linker publish OWNER/REPO SKILL --branch BRANCH --pr
+
   # Install a fixed, read-only tag snapshot
   $ gh skill-linker install OWNER/REPO SKILL --tag TAG
   $ gh skill-linker status
@@ -39,6 +42,9 @@ EXAMPLES
   # Synchronize one managed skill
   $ gh skill-linker pull SKILL
   $ gh skill-linker push SKILL
+
+  # Propose local changes without writing directly to the source branch
+  $ gh skill-linker push SKILL --pr
 
   # Remove one managed skill from this project
   $ gh skill-linker uninstall SKILL
@@ -58,8 +64,13 @@ An empty repository is initialized with the explicit branch. In a non-empty
 repository, the branch must already exist. Existing different content is never
 overwritten. Exact existing content is linked without creating a commit.
 
+Use --pr to create or update one pull request for the skill. The manifest is
+not changed until the pull request is merged. Rerun the same command after the
+merge to link the skill. If local work continued meanwhile, the merged revision
+is linked first and the newer local changes remain available for push --pr.
+
 USAGE
-  gh skill-linker publish OWNER/REPO SKILL --branch BRANCH
+  gh skill-linker publish OWNER/REPO SKILL --branch BRANCH [--pr]
 
 ARGUMENTS
   OWNER/REPO   Existing GitHub repository that will own the skill
@@ -67,11 +78,13 @@ ARGUMENTS
   BRANCH       Branch used by later pull and push operations
 
 FLAGS
-      --branch string   Source branch
+  --branch string   Source branch
+  --pr              Create or update a pull request
   -h, --help            Show help for command
 
 EXAMPLES
   $ gh skill-linker publish nikollson/agent-skills my-skill --branch main
+  $ gh skill-linker publish game-dev-rta-club/agent-skills my-skill --branch main --pr
 
 LEARN MORE
   Run gh skill-linker status after publishing.
@@ -136,7 +149,8 @@ LEARN MORE
 const statusHelp = `Show synchronization and operation eligibility for project Agent Skills.
 
 When synchronization state can be calculated, the table reports clean, pull,
-push, or conflict.
+push, or conflict. PROPOSAL independently reports a pull request as waiting,
+update, source_changed, obsolete, diverged, ambiguous, or unknown.
 Local changes that cannot be pushed are reported as warnings.
 Tag-backed skills report pull and push as ineligible.
 
@@ -175,13 +189,21 @@ EXAMPLES
 const pushHelp = `Push one managed skill to its recorded repository and branch.
 
 Push requires repository write permission and a remote branch that has not
-changed since the last synchronization. Use status before pushing local changes.
+changed since the last synchronization. Use --pr to create or update one pull
+request for this skill instead of writing directly to the source branch.
+
+Later local changes update the same open pull request. If the source branch
+changed, pull and resolve it first, then rerun push --pr. Direct push is refused
+while a managed pull request remains open.
 
 USAGE
-  gh skill-linker push SKILL
+  gh skill-linker push SKILL [--pr]
 
 ARGUMENTS
   SKILL   Managed skill name or project-relative path
+
+FLAGS
+      --pr   Create or update a pull request
 
 INHERITED FLAGS
   -h, --help   Show help for command
@@ -189,6 +211,7 @@ INHERITED FLAGS
 EXAMPLES
   $ gh skill-linker status
   $ gh skill-linker push brainstorming
+  $ gh skill-linker push brainstorming --pr
 `
 
 const uninstallHelp = `Remove one managed Agent Skill from the current project.

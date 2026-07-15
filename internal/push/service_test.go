@@ -9,6 +9,7 @@ import (
 
 	"github.com/game-dev-rta-club/gh-skill-linker/internal/gitcli"
 	"github.com/game-dev-rta-club/gh-skill-linker/internal/manifest"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/proposal"
 	"github.com/game-dev-rta-club/gh-skill-linker/internal/source"
 	"github.com/game-dev-rta-club/gh-skill-linker/internal/syncstate"
 	"github.com/game-dev-rta-club/gh-skill-linker/internal/workspace"
@@ -72,6 +73,24 @@ type fakePusher struct {
 	err      error
 	calls    int
 	snapshot source.SkillSnapshot
+}
+
+type fakeProposer struct {
+	active   *proposal.PullRequest
+	result   proposal.Result
+	err      error
+	requests []proposal.Request
+}
+
+func (f *fakeProposer) FindActive(
+	context.Context, source.Repository, string, string, string,
+) (*proposal.PullRequest, error) {
+	return f.active, f.err
+}
+
+func (f *fakeProposer) Propose(_ context.Context, request proposal.Request) (proposal.Result, error) {
+	f.requests = append(f.requests, request)
+	return f.result, f.err
 }
 
 func (f *fakePusher) PushSkill(_ context.Context, _, _, _, _ string, snapshot source.SkillSnapshot, _ string) (gitcli.PushResult, error) {
@@ -225,6 +244,60 @@ func TestPushManifestFailureWarnsNotToRetry(t *testing.T) {
 	}
 }
 
+func TestPushProposalCreatesPullRequestWithoutAdvancingManifest(t *testing.T) {
+	registry := newRegistry()
+	local := localSkill("---\nname: sample\n---\nChanged\n", false, nil)
+	remote := remoteSkill("---\nname: sample\n---\nOld\n", false, baseCommit, baseTree)
+	proposer := &fakeProposer{result: proposal.Result{
+		Created: true,
+		PullRequest: proposal.PullRequest{
+			Number: 42, URL: "https://github.com/owner/repo/pull/42",
+		},
+	}}
+	pusher := &fakePusher{}
+	service := NewService(
+		registry, fakeLocalReader{local: local}, fakeRemote{current: remote, canPush: true},
+		fakeInventory{files: []string{".agents/skills/sample/SKILL.md"}}, pusher, proposer,
+	)
+
+	result, err := service.PushProposal(context.Background(), "/repo", "sample")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.Proposed || result.ProposalState != "created" || result.ProposalNumber != 42 ||
+		result.ProposalURL != "https://github.com/owner/repo/pull/42" {
+		t.Fatalf("result = %#v", result)
+	}
+	if registry.advanced || pusher.calls != 0 || len(proposer.requests) != 1 {
+		t.Fatalf("advanced=%t pushes=%d proposals=%d", registry.advanced, pusher.calls, len(proposer.requests))
+	}
+	request := proposer.requests[0]
+	if request.BaseTreeSHA != baseTree || request.Snapshot.TreeSHA == "" || request.SourcePath != "skills/sample" ||
+		request.BaseBranch != "main" {
+		t.Fatalf("proposal request = %#v", request)
+	}
+}
+
+func TestDirectPushRefusesActiveProposal(t *testing.T) {
+	registry := newRegistry()
+	local := localSkill("---\nname: sample\n---\nChanged\n", false, nil)
+	remote := remoteSkill("---\nname: sample\n---\nOld\n", false, baseCommit, baseTree)
+	proposer := &fakeProposer{active: &proposal.PullRequest{
+		Number: 42, URL: "https://github.com/owner/repo/pull/42",
+	}}
+	service := NewService(
+		registry, fakeLocalReader{local: local}, fakeRemote{current: remote, canPush: true},
+		fakeInventory{files: []string{".agents/skills/sample/SKILL.md"}}, &fakePusher{}, proposer,
+	)
+
+	_, err := service.Push(context.Background(), "/repo", "sample")
+
+	if err == nil || !strings.Contains(err.Error(), "open_proposal") || !strings.Contains(err.Error(), "pull/42") {
+		t.Fatalf("Push() error = %v", err)
+	}
+}
+
 func newRegistry() *fakeRegistry {
 	entry := manifest.Skill{
 		Repository: "https://github.com/owner/repo.git", SourcePath: "skills/sample", SourceRef: "refs/heads/main",
@@ -234,7 +307,7 @@ func newRegistry() *fakeRegistry {
 }
 
 func newPushService(registry Registry, local workspace.LocalSkill, remote Remote, pusher Pusher, files []string) *Service {
-	return NewService(registry, fakeLocalReader{local: local}, remote, fakeInventory{files: files}, pusher)
+	return NewService(registry, fakeLocalReader{local: local}, remote, fakeInventory{files: files}, pusher, &fakeProposer{})
 }
 
 func localSkill(document string, executable bool, additional map[string][]byte) workspace.LocalSkill {

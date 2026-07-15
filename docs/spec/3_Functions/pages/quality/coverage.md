@@ -35,12 +35,24 @@ does not report line coverage.
 | INST-005 | `install/service.go` | bulk preflight/partial failure tests |
 | STAT-001 | `status`, `syncstate` | state tests |
 | STAT-002 | `status/service.go` | reason/frontmatter tests |
+| STAT-003 | `status/service.go` | eligibility precedence tests |
 | PULL-001 | `pull/service.go` | gate/name tests |
 | PULL-002 | `pull/service.go` | no-op tests |
 | PULL-003 | `pull`, `workspace` | rollback/conflict path tests |
 | PUSH-001 | `push/service.go` | gate/name tests |
 | PUSH-002 | `push/service.go` | no-op tests |
 | PUSH-003 | `push`, `gitcli` | remote tests |
+| PUSH-004 | `push`, `proposal` | proposal mode tests |
+| PUB-001 | `publish/service.go` | local preflight tests |
+| PUB-002 | `publish`, `gitcli` | remote mutation tests |
+| PUB-003 | `publish`, `manifest` | registration recovery tests |
+| PUB-004 | `publish`, `proposal` | proposal mode tests |
+| PR-001 | `proposal/model.go` | identity and metadata tests |
+| PR-002 | `proposal/service.go` | proposal timeline tests |
+| PR-003 | `proposal/service.go` | branch and metadata recovery tests |
+| UNIN-001 | `uninstall/service.go` | selector and preflight tests |
+| UNIN-002 | `uninstall/service.go` | local-change protection tests |
+| UNIN-003 | `uninstall`, `workspace` | rollback tests |
 | MERGE-001 | `merge/threeway.go` | merge tests |
 | MERGE-002 | `merge`, `gitcli` | marker/binary/multiple-conflict tests |
 | MERGE-003 | `merge/threeway.go` | mode tests |
@@ -48,6 +60,7 @@ does not report line coverage.
 | GITHUB-001 | `cli`, `command` | redaction tests |
 | GITHUB-002 | `githubapi`, `gitcli` | read tests |
 | GITHUB-003 | `githubapi`, `gitcli` | permission tests |
+| GITHUB-004 | `githubapi/proposal.go` | pull request adapter tests |
 | GIT-001 | `gitcli/client.go` | inventory tests |
 | DIST-001 | build/release | CI config |
 | AUTO-001 | CI/release | workflow config |

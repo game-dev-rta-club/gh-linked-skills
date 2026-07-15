@@ -48,3 +48,13 @@ and destination in one write. There is no process lock.
 
 Do not roll back the remote after a manifest failure. A rerun can adopt the
 identical remote subtree and retry only manifest registration.
+
+## PUB-004 Pull request mode
+
+For a missing path, create or update a proposal and leave the manifest
+unchanged. After merge, rerun publish and register the current source revision.
+If local content advanced, keep it unchanged while registering the merged
+baseline. Reject different existing content unless a matching merged managed
+proposal proves ownership of the path.
+
+Common branch and recovery rules: [Pull request proposals](proposals.md).

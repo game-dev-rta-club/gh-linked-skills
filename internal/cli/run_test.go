@@ -9,6 +9,7 @@ import (
 
 	"github.com/game-dev-rta-club/gh-skill-linker/internal/discovery"
 	installapp "github.com/game-dev-rta-club/gh-skill-linker/internal/install"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/proposal"
 	publishapp "github.com/game-dev-rta-club/gh-skill-linker/internal/publish"
 	pullapp "github.com/game-dev-rta-club/gh-skill-linker/internal/pull"
 	pushapp "github.com/game-dev-rta-club/gh-skill-linker/internal/push"
@@ -44,19 +45,21 @@ type fakePull struct {
 }
 
 type fakePush struct {
-	result pushapp.Result
-	err    error
-	calls  int
+	result        pushapp.Result
+	err           error
+	calls         int
+	proposalCalls int
 }
 
 type fakePublish struct {
-	root       string
-	repository string
-	selector   string
-	ref        source.Ref
-	result     publishapp.Result
-	err        error
-	calls      int
+	root          string
+	repository    string
+	selector      string
+	ref           source.Ref
+	result        publishapp.Result
+	err           error
+	calls         int
+	proposalCalls int
 }
 
 type fakeUninstaller struct {
@@ -84,6 +87,16 @@ func (f *fakePublish) Publish(
 	ref source.Ref,
 ) (publishapp.Result, error) {
 	f.calls++
+	f.root, f.repository, f.selector, f.ref = root, repository, selector, ref
+	return f.result, f.err
+}
+
+func (f *fakePublish) PublishProposal(
+	_ context.Context,
+	root, repository, selector string,
+	ref source.Ref,
+) (publishapp.Result, error) {
+	f.proposalCalls++
 	f.root, f.repository, f.selector, f.ref = root, repository, selector, ref
 	return f.result, f.err
 }
@@ -135,6 +148,11 @@ func (f *fakeManagedInstaller) Install(
 
 func (f *fakePush) Push(context.Context, string, string) (pushapp.Result, error) {
 	f.calls++
+	return f.result, f.err
+}
+
+func (f *fakePush) PushProposal(context.Context, string, string) (pushapp.Result, error) {
+	f.proposalCalls++
 	return f.result, f.err
 }
 
@@ -312,6 +330,34 @@ func TestRunStatusTableWarnsWhenLocalChangesCannotBePushed(t *testing.T) {
 	}
 }
 
+func TestRunStatusTableShowsProposalAsSeparateColumn(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	state := syncstate.Push
+	service := &fakeStatus{records: []status.Record{{
+		SkillName: "sample", Path: ".agents/skills/sample", State: &state,
+		PullEligibility: status.Eligible, PushEligibility: status.Ineligible,
+		PushReason: testStringPointer("open_proposal"),
+		Proposal: &proposal.Summary{
+			State: proposal.Waiting, Number: 42, URL: "https://github.com/owner/repo/pull/42",
+		},
+	}}}
+
+	exitCode := RunWithDependencies(
+		context.Background(), []string{"status"}, &stdout, &stderr,
+		Dependencies{Preflight: fakePreflight{}, Root: fakeRoot{root: "/repo"}, Status: service},
+	)
+
+	if exitCode != 0 {
+		t.Fatalf("exit=%d stderr=%q", exitCode, stderr.String())
+	}
+	for _, want := range []string{"PROPOSAL", "#42 waiting", "open_proposal"} {
+		if !strings.Contains(stdout.String()+stderr.String(), want) {
+			t.Errorf("output = %q / %q, want %q", stdout.String(), stderr.String(), want)
+		}
+	}
+}
+
 func TestRunStatusStopsAfterPreflightFailure(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -429,6 +475,46 @@ func TestRunPushReportsPushedTree(t *testing.T) {
 	}
 }
 
+func TestRunPushProposalReportsPullRequest(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	pusher := &fakePush{result: pushapp.Result{
+		Path: ".agents/skills/sample", TreeSHA: "new-tree", Proposed: true,
+		ProposalState: "created", ProposalNumber: 42,
+		ProposalURL: "https://github.com/owner/repo/pull/42",
+	}}
+
+	exitCode := RunWithDependencies(
+		context.Background(), []string{"push", "sample", "--pr"}, &stdout, &stderr,
+		Dependencies{Preflight: fakePreflight{}, Root: fakeRoot{root: "/repo"}, Push: pusher},
+	)
+
+	if exitCode != 0 || pusher.proposalCalls != 1 || pusher.calls != 0 || stderr.Len() != 0 {
+		t.Fatalf("exit=%d direct=%d proposal=%d stderr=%q", exitCode, pusher.calls, pusher.proposalCalls, stderr.String())
+	}
+	for _, want := range []string{"created", "#42", "https://github.com/owner/repo/pull/42"} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Errorf("stdout = %q, want %q", stdout.String(), want)
+		}
+	}
+}
+
+func TestRunPushRejectsInvalidFlags(t *testing.T) {
+	for _, args := range [][]string{
+		{"push"}, {"push", "sample", "extra"}, {"push", "sample", "--pr", "--pr"}, {"push", "--unknown", "sample"},
+	} {
+		var stdout bytes.Buffer
+		var stderr bytes.Buffer
+		pusher := &fakePush{}
+
+		exitCode := RunWithDependencies(context.Background(), args, &stdout, &stderr, Dependencies{Push: pusher})
+
+		if exitCode != 2 || pusher.calls != 0 || pusher.proposalCalls != 0 {
+			t.Errorf("args=%q exit=%d direct=%d proposal=%d", args, exitCode, pusher.calls, pusher.proposalCalls)
+		}
+	}
+}
+
 func TestRunPushRejectsMissingSelector(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -532,6 +618,32 @@ func TestRunPublishReportsExistingRemoteLink(t *testing.T) {
 	}
 }
 
+func TestRunPublishProposalReportsPullRequest(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	publisher := &fakePublish{result: publishapp.Result{
+		SkillName: "sample", Path: ".agents/skills/sample", Repository: "nikollson/skills",
+		SourcePath: "skills/sample", Proposed: true, ProposalState: "created",
+		ProposalNumber: 42, ProposalURL: "https://github.com/nikollson/skills/pull/42",
+	}}
+
+	exitCode := RunWithDependencies(
+		context.Background(),
+		[]string{"publish", "nikollson/skills", "sample", "--branch", "main", "--pr"},
+		&stdout, &stderr,
+		Dependencies{Preflight: fakePreflight{}, Root: fakeRoot{root: "/repo"}, Publish: publisher},
+	)
+
+	if exitCode != 0 || publisher.proposalCalls != 1 || publisher.calls != 0 || stderr.Len() != 0 {
+		t.Fatalf("exit=%d direct=%d proposal=%d stderr=%q", exitCode, publisher.calls, publisher.proposalCalls, stderr.String())
+	}
+	for _, want := range []string{"created", "#42", "https://github.com/nikollson/skills/pull/42"} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Errorf("stdout = %q, want %q", stdout.String(), want)
+		}
+	}
+}
+
 func TestRunPublishRejectsInvalidArgumentsBeforeService(t *testing.T) {
 	tests := [][]string{
 		{"publish"},
@@ -540,6 +652,7 @@ func TestRunPublishRejectsInvalidArgumentsBeforeService(t *testing.T) {
 		{"publish", "owner/repo", "sample", "--tag", "v1"},
 		{"publish", "owner/repo", "sample", "--branch", "main", "extra"},
 		{"publish", "owner/repo", "sample", "--branch", "main", "--branch", "next"},
+		{"publish", "owner/repo", "sample", "--branch", "main", "--pr", "--pr"},
 		{"publish", "owner/repo", "sample", "--branch=main"},
 		{"publish", "owner", "sample", "--branch", "main"},
 	}

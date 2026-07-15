@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/game-dev-rta-club/gh-skill-linker/internal/manifest"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/proposal"
 	"github.com/game-dev-rta-club/gh-skill-linker/internal/source"
 	"github.com/game-dev-rta-club/gh-skill-linker/internal/syncstate"
 	"github.com/game-dev-rta-club/gh-skill-linker/internal/workspace"
@@ -50,6 +51,18 @@ type fakeRemote struct {
 	treeCalls       *int
 	snapshotCalls   *int
 	permissionCalls *int
+	pulls           []proposal.PullRequest
+	pullErr         error
+	pullCalls       *int
+}
+
+func (f fakeRemote) ListPullRequests(
+	context.Context, source.Repository, proposal.ListOptions,
+) ([]proposal.PullRequest, error) {
+	if f.pullCalls != nil {
+		(*f.pullCalls)++
+	}
+	return f.pulls, f.pullErr
 }
 
 func (f fakeRemote) ResolveSourceRef(_ context.Context, _ Repository, ref string) (source.ResolvedRef, error) {
@@ -777,6 +790,129 @@ func TestInspectMakesGeneratedConflictIneligibleWithoutRemoteLookup(t *testing.T
 	}
 }
 
+func TestInspectShowsOpenProposalSeparatelyFromFileState(t *testing.T) {
+	entry := managed("sample", "/repo/.agents/skills/sample")
+	localSkill := local("changed\n", false)
+	localTree, err := workspace.TreeSHA(localSkill.Files, localSkill.Executable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pull := statusPull(t, entry, localTree)
+	remote := fakeRemote{
+		resolutions: map[string]source.ResolvedRef{
+			entry.SourceRef: {RefSHA: entry.CommitSHA, CommitSHA: entry.CommitSHA},
+		},
+		write: true, pulls: []proposal.PullRequest{pull},
+	}
+
+	records, err := NewService(
+		fakeLister{skills: []manifest.InstalledSkill{entry}},
+		fakeLocalReader{byPath: map[string]workspace.LocalSkill{entry.Path: localSkill}}, remote,
+	).Inspect(context.Background(), "/repo")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	record := records[0]
+	if record.State == nil || *record.State != syncstate.Push || record.Proposal == nil ||
+		record.Proposal.State != proposal.Waiting || record.Proposal.Number != pull.Number {
+		t.Fatalf("record = %#v", record)
+	}
+	if record.PushEligibility != Ineligible || value(record.PushReason) != "open_proposal" {
+		t.Fatalf("push = %s (%s)", record.PushEligibility, value(record.PushReason))
+	}
+}
+
+func TestInspectKeepsFileStateWhenProposalLookupFails(t *testing.T) {
+	entry := managed("sample", "/repo/.agents/skills/sample")
+	remote := fakeRemote{
+		resolutions: map[string]source.ResolvedRef{
+			entry.SourceRef: {RefSHA: entry.CommitSHA, CommitSHA: entry.CommitSHA},
+		},
+		write: true, pullErr: errors.New("GitHub unavailable"),
+	}
+
+	records, err := NewService(
+		fakeLister{skills: []manifest.InstalledSkill{entry}},
+		fakeLocalReader{byPath: map[string]workspace.LocalSkill{entry.Path: local("same\n", false)}}, remote,
+	).Inspect(context.Background(), "/repo")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	record := records[0]
+	if record.State == nil || *record.State != syncstate.Clean || record.Proposal == nil ||
+		record.Proposal.State != proposal.Unknown {
+		t.Fatalf("record = %#v", record)
+	}
+	if record.PushEligibility != Unknown || value(record.PushReason) != "proposal_unknown" {
+		t.Fatalf("push = %s (%s)", record.PushEligibility, value(record.PushReason))
+	}
+}
+
+func TestInspectListsPullRequestsOncePerRepository(t *testing.T) {
+	first := managed("first", "/repo/.agents/skills/first")
+	second := managed("second", "/repo/.agents/skills/second")
+	firstLocal := namedLocal("first", "same\n", false)
+	secondLocal := namedLocal("second", "same\n", false)
+	setBaseline(&first, firstLocal)
+	setBaseline(&second, secondLocal)
+	pullCalls := 0
+	remote := fakeRemote{
+		resolutions: map[string]source.ResolvedRef{
+			first.SourceRef: {RefSHA: first.CommitSHA, CommitSHA: first.CommitSHA},
+		},
+		write: true, pullCalls: &pullCalls,
+	}
+
+	_, err := NewService(
+		fakeLister{skills: []manifest.InstalledSkill{first, second}},
+		fakeLocalReader{byPath: map[string]workspace.LocalSkill{first.Path: firstLocal, second.Path: secondLocal}},
+		remote,
+	).Inspect(context.Background(), "/repo")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pullCalls != 1 {
+		t.Fatalf("pull request calls = %d, want 1", pullCalls)
+	}
+}
+
+func TestInspectReportsPullWhenLocalAlreadyMatchesAdvancedRemote(t *testing.T) {
+	entry := managed("sample", "/repo/.agents/skills/sample")
+	currentLocal := local("new remote\n", false)
+	currentTree, err := workspace.TreeSHA(currentLocal.Files, currentLocal.Executable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	current := source.SkillSnapshot{
+		CommitSHA: strings.Repeat("c", 40), TreeSHA: currentTree,
+		Files: currentLocal.Files, Executable: currentLocal.Executable,
+	}
+	remote := fakeRemote{
+		resolutions: map[string]source.ResolvedRef{
+			entry.SourceRef: {RefSHA: current.CommitSHA, CommitSHA: current.CommitSHA},
+		},
+		trees: map[string]source.RepositoryTree{
+			current.CommitSHA: repositoryTree(map[string]string{entry.SourcePath: current.TreeSHA}),
+		},
+		snapshots: map[string]source.SkillSnapshot{current.CommitSHA: current}, write: true,
+	}
+
+	records, err := NewService(
+		fakeLister{skills: []manifest.InstalledSkill{entry}},
+		fakeLocalReader{byPath: map[string]workspace.LocalSkill{entry.Path: currentLocal}}, remote,
+	).Inspect(context.Background(), "/repo")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if records[0].State == nil || *records[0].State != syncstate.Pull {
+		t.Fatalf("state = %v, want pull", records[0].State)
+	}
+}
+
 func TestSkillTreeSHASelectsExactSkillSubtree(t *testing.T) {
 	tree := source.RepositoryTree{SHA: "root", Entries: []source.TreeEntry{
 		{Path: "skills/sample", Mode: "040000", Type: "tree", SHA: "sample-tree"},
@@ -896,4 +1032,24 @@ func value(pointer *string) string {
 		return ""
 	}
 	return *pointer
+}
+
+func statusPull(t *testing.T, entry manifest.InstalledSkill, proposedTree string) proposal.PullRequest {
+	t.Helper()
+	body, err := proposal.SetMetadata("Synchronize skill.", proposal.Metadata{
+		Version: proposal.MetadataVersion, SourcePath: entry.SourcePath, BaseRef: entry.SourceRef,
+		BaseTreeSHA: entry.TreeSHA, ProposedTreeSHA: proposedTree,
+		HeadCommitSHA: strings.Repeat("c", 40),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	repository, _ := source.ParseRepository(entry.Repository)
+	fullName := repository.Owner + "/" + repository.Name
+	return proposal.PullRequest{
+		Number: 42, URL: "https://github.com/owner/repo/pull/42", State: "open", Body: body,
+		HeadRef: proposal.BranchPrefix(entry.Name, entry.SourcePath) + "/proposal",
+		HeadSHA: strings.Repeat("c", 40), HeadRepository: fullName,
+		BaseRef: strings.TrimPrefix(entry.SourceRef, "refs/heads/"), BaseRepository: fullName,
+	}
 }

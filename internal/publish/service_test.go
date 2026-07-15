@@ -10,6 +10,7 @@ import (
 
 	"github.com/game-dev-rta-club/gh-skill-linker/internal/gitcli"
 	"github.com/game-dev-rta-club/gh-skill-linker/internal/manifest"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/proposal"
 	"github.com/game-dev-rta-club/gh-skill-linker/internal/source"
 	"github.com/game-dev-rta-club/gh-skill-linker/internal/workspace"
 )
@@ -44,6 +45,39 @@ type fakePermission struct {
 	canPush bool
 	err     error
 	calls   int
+	current source.SkillSnapshot
+	readErr error
+}
+
+func (f *fakePermission) ReadSkill(
+	context.Context, source.Repository, string, string,
+) (source.SkillSnapshot, error) {
+	return f.current, f.readErr
+}
+
+type fakeProposals struct {
+	active   *proposal.PullRequest
+	merged   *proposal.PullRequest
+	result   proposal.Result
+	err      error
+	requests []proposal.Request
+}
+
+func (f *fakeProposals) FindActive(
+	context.Context, source.Repository, string, string, string,
+) (*proposal.PullRequest, error) {
+	return f.active, f.err
+}
+
+func (f *fakeProposals) FindMerged(
+	context.Context, source.Repository, string, string, string, string,
+) (*proposal.PullRequest, error) {
+	return f.merged, f.err
+}
+
+func (f *fakeProposals) Propose(_ context.Context, request proposal.Request) (proposal.Result, error) {
+	f.requests = append(f.requests, request)
+	return f.result, f.err
 }
 
 func (f *fakePermission) ReadPermission(context.Context, source.Repository, string) (bool, error) {
@@ -96,7 +130,7 @@ func TestPublishAddsUnmanagedSkillAndRecordsRemoteBaseline(t *testing.T) {
 	publisher := &fakePublisher{results: []gitcli.PushResult{{
 		CommitSHA: strings.Repeat("a", 40), TreeSHA: strings.Repeat("b", 40), Pushed: true,
 	}}}
-	service := NewService(registry, workspace.Reader{}, permission, fakeInventory{files: []string{
+	service := newTestService(registry, workspace.Reader{}, permission, fakeInventory{files: []string{
 		".agents/skills/sample/SKILL.md", ".agents/skills/sample/scripts/check.sh",
 	}}, publisher)
 
@@ -138,7 +172,7 @@ func TestPublishRejectsManagedSkillBeforeRemoteAccess(t *testing.T) {
 	registry.document.Skills["sample"] = validManifestSkill("old", "sample")
 	permission := &fakePermission{canPush: true}
 	publisher := &fakePublisher{}
-	service := NewService(registry, workspace.Reader{}, permission, fakeInventory{}, publisher)
+	service := newTestService(registry, workspace.Reader{}, permission, fakeInventory{}, publisher)
 
 	_, err := service.Publish(context.Background(), root, "nikollson/new", "sample", branchRef("main"))
 
@@ -158,7 +192,7 @@ func TestPublishRejectsInvalidLocalSkillBeforeRemoteAccess(t *testing.T) {
 	}
 	permission := &fakePermission{canPush: true}
 	publisher := &fakePublisher{}
-	service := NewService(
+	service := newTestService(
 		&fakeRegistry{document: emptyManifest()}, workspace.Reader{}, permission, publishInventory(), publisher,
 	)
 
@@ -174,7 +208,7 @@ func TestPublishRejectsInvalidLocalSkillBeforeRemoteAccess(t *testing.T) {
 
 func TestPublishRejectsIgnoredLocalFiles(t *testing.T) {
 	root, _ := createPublishSkill(t, "sample")
-	service := NewService(
+	service := newTestService(
 		&fakeRegistry{document: emptyManifest()}, workspace.Reader{}, &fakePermission{canPush: true},
 		fakeInventory{files: []string{".agents/skills/sample/SKILL.md"}}, &fakePublisher{},
 	)
@@ -189,7 +223,7 @@ func TestPublishRejectsIgnoredLocalFiles(t *testing.T) {
 func TestPublishRequiresExactOwnerRepositoryInput(t *testing.T) {
 	root, _ := createPublishSkill(t, "sample")
 	for _, repository := range []string{" owner/repo", "owner/repo.git", "owner/repo/extra", "./repo"} {
-		service := NewService(
+		service := newTestService(
 			&fakeRegistry{document: emptyManifest()}, workspace.Reader{}, &fakePermission{canPush: true},
 			publishInventory(), &fakePublisher{},
 		)
@@ -203,7 +237,7 @@ func TestPublishRejectsReadOnlyRepositoryBeforeGitMutation(t *testing.T) {
 	root, _ := createPublishSkill(t, "sample")
 	registry := &fakeRegistry{document: emptyManifest()}
 	publisher := &fakePublisher{}
-	service := NewService(
+	service := newTestService(
 		registry, workspace.Reader{}, &fakePermission{canPush: false}, publishInventory(), publisher,
 	)
 
@@ -218,7 +252,7 @@ func TestPublishLeavesManifestUnchangedWhenRemoteFails(t *testing.T) {
 	root, _ := createPublishSkill(t, "sample")
 	registry := &fakeRegistry{document: emptyManifest()}
 	publisher := &fakePublisher{errs: []error{errors.New("push failed")}}
-	service := NewService(registry, workspace.Reader{}, &fakePermission{canPush: true}, publishInventory(), publisher)
+	service := newTestService(registry, workspace.Reader{}, &fakePermission{canPush: true}, publishInventory(), publisher)
 
 	_, err := service.Publish(context.Background(), root, "nikollson/skills", "sample", branchRef("main"))
 
@@ -234,7 +268,7 @@ func TestPublishRetriesByAdoptingExactRemoteAfterManifestFailure(t *testing.T) {
 		{CommitSHA: strings.Repeat("a", 40), TreeSHA: strings.Repeat("b", 40), Pushed: true},
 		{CommitSHA: strings.Repeat("a", 40), TreeSHA: strings.Repeat("b", 40), Pushed: false},
 	}}
-	service := NewService(registry, workspace.Reader{}, &fakePermission{canPush: true}, publishInventory(), publisher)
+	service := newTestService(registry, workspace.Reader{}, &fakePermission{canPush: true}, publishInventory(), publisher)
 
 	first, firstErr := service.Publish(context.Background(), root, "nikollson/skills", "sample", branchRef("main"))
 	second, secondErr := service.Publish(context.Background(), root, "nikollson/skills", "sample", branchRef("main"))
@@ -247,6 +281,91 @@ func TestPublishRetriesByAdoptingExactRemoteAfterManifestFailure(t *testing.T) {
 	}
 	if _, ok := registry.document.Skills["sample"]; !ok {
 		t.Fatalf("manifest = %#v", registry.document)
+	}
+}
+
+func TestPublishProposalCreatesPullRequestForMissingRemoteSkill(t *testing.T) {
+	root, _ := createPublishSkill(t, "sample")
+	registry := &fakeRegistry{document: emptyManifest()}
+	remote := &fakePermission{canPush: true, readErr: source.ErrSkillNotFound}
+	proposals := &fakeProposals{result: proposal.Result{
+		Created: true,
+		PullRequest: proposal.PullRequest{
+			Number: 42, URL: "https://github.com/nikollson/skills/pull/42",
+		},
+	}}
+	publisher := &fakePublisher{}
+	service := newTestService(registry, workspace.Reader{}, remote, publishInventory(), publisher, proposals)
+
+	result, err := service.PublishProposal(
+		context.Background(), root, "nikollson/skills", "sample", branchRef("main"),
+	)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.Proposed || result.ProposalState != "created" || result.ProposalNumber != 42 {
+		t.Fatalf("result = %#v", result)
+	}
+	if publisher.calls != 0 || len(registry.added) != 0 || len(proposals.requests) != 1 {
+		t.Fatalf("publisher=%d manifest=%d proposals=%d", publisher.calls, len(registry.added), len(proposals.requests))
+	}
+	if proposals.requests[0].BaseTreeSHA != "" || proposals.requests[0].Snapshot.TreeSHA == "" {
+		t.Fatalf("proposal request = %#v", proposals.requests[0])
+	}
+}
+
+func TestPublishProposalLinksMergedRemoteAndKeepsNewerLocalChanges(t *testing.T) {
+	root, _ := createPublishSkill(t, "sample")
+	registry := &fakeRegistry{document: emptyManifest()}
+	current := source.SkillSnapshot{
+		CommitSHA: strings.Repeat("a", 40), TreeSHA: strings.Repeat("b", 40),
+		Files: map[string][]byte{"SKILL.md": []byte("older merged content")},
+	}
+	remote := &fakePermission{canPush: true, current: current}
+	proposals := &fakeProposals{merged: &proposal.PullRequest{
+		Number: 42, URL: "https://github.com/nikollson/skills/pull/42", Merged: true,
+	}}
+	service := newTestService(registry, workspace.Reader{}, remote, publishInventory(), &fakePublisher{}, proposals)
+
+	result, err := service.PublishProposal(
+		context.Background(), root, "nikollson/skills", "sample", branchRef("main"),
+	)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Proposed || len(registry.added) != 1 || registry.added[0].TreeSHA != current.TreeSHA {
+		t.Fatalf("result=%#v added=%#v", result, registry.added)
+	}
+	if len(proposals.requests) != 0 {
+		t.Fatalf("proposal requests = %#v", proposals.requests)
+	}
+}
+
+func TestPublishProposalRefusesUnrelatedExistingRemoteSkill(t *testing.T) {
+	root, _ := createPublishSkill(t, "sample")
+	remote := &fakePermission{canPush: true, current: source.SkillSnapshot{
+		CommitSHA: strings.Repeat("a", 40), TreeSHA: strings.Repeat("b", 40),
+		Files: map[string][]byte{"SKILL.md": []byte("unrelated")},
+	}}
+	proposals := &fakeProposals{active: &proposal.PullRequest{
+		Number: 42, URL: "https://github.com/nikollson/skills/pull/42",
+	}}
+	service := newTestService(
+		&fakeRegistry{document: emptyManifest()}, workspace.Reader{}, remote,
+		publishInventory(), &fakePublisher{}, proposals,
+	)
+
+	_, err := service.PublishProposal(
+		context.Background(), root, "nikollson/skills", "sample", branchRef("main"),
+	)
+
+	if err == nil || !strings.Contains(err.Error(), "remote_skill_exists") {
+		t.Fatalf("PublishProposal() error = %v", err)
+	}
+	if len(proposals.requests) != 0 {
+		t.Fatalf("proposal requests = %#v, want none", proposals.requests)
 	}
 }
 
@@ -292,4 +411,19 @@ func publishInventory() fakeInventory {
 	return fakeInventory{files: []string{
 		".agents/skills/sample/SKILL.md", ".agents/skills/sample/scripts/check.sh",
 	}}
+}
+
+func newTestService(
+	registry Registry,
+	local LocalReader,
+	remote Remote,
+	inventory Inventory,
+	publisher Publisher,
+	proposalManagers ...ProposalManager,
+) *Service {
+	var proposals ProposalManager = &fakeProposals{}
+	if len(proposalManagers) > 0 {
+		proposals = proposalManagers[0]
+	}
+	return NewService(registry, local, remote, inventory, publisher, proposals)
 }

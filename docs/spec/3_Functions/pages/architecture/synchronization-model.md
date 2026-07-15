@@ -25,6 +25,10 @@ the baseline tree SHA. If the source-ref commit SHA equals the baseline, current
 is also unchanged. Otherwise, status reads the source skill tree SHA. Local and
 current differences produce `clean`, `push`, `pull`, or `conflict`.
 
+Pull request proposal state is separate from these snapshots. GitHub and hidden
+PR metadata identify a proposal; the manifest remains the synchronization
+baseline only.
+
 A snapshot contains relative paths, raw bytes, and executable state. YAML
 meaning and timestamps are not compared.
 

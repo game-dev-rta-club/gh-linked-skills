@@ -7,8 +7,10 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/game-dev-rta-club/gh-skill-linker/internal/manifest"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/proposal"
 	"github.com/game-dev-rta-club/gh-skill-linker/internal/skill"
 	"github.com/game-dev-rta-club/gh-skill-linker/internal/source"
 	"github.com/game-dev-rta-club/gh-skill-linker/internal/syncstate"
@@ -24,15 +26,16 @@ const (
 )
 
 type Record struct {
-	SkillName       string           `json:"skillName"`
-	Path            string           `json:"path"`
-	SourceURL       *string          `json:"sourceURL"`
-	SourceRef       *string          `json:"sourceRef"`
-	State           *syncstate.State `json:"state"`
-	PullEligibility Eligibility      `json:"pullEligibility"`
-	PullReason      *string          `json:"pullReason"`
-	PushEligibility Eligibility      `json:"pushEligibility"`
-	PushReason      *string          `json:"pushReason"`
+	SkillName       string            `json:"skillName"`
+	Path            string            `json:"path"`
+	SourceURL       *string           `json:"sourceURL"`
+	SourceRef       *string           `json:"sourceRef"`
+	State           *syncstate.State  `json:"state"`
+	PullEligibility Eligibility       `json:"pullEligibility"`
+	PullReason      *string           `json:"pullReason"`
+	PushEligibility Eligibility       `json:"pushEligibility"`
+	PushReason      *string           `json:"pushReason"`
+	Proposal        *proposal.Summary `json:"proposal,omitempty"`
 }
 
 type Repository = source.Repository
@@ -67,6 +70,9 @@ type Remote interface {
 	ReadStatusPreflight(ctx context.Context, requests []PreflightRequest) map[string]PreflightResult
 	ReadRepositoryTree(ctx context.Context, repository Repository, revision string) (source.RepositoryTree, error)
 	ReadSkill(ctx context.Context, repository Repository, skillPath string, revision string) (source.SkillSnapshot, error)
+	ListPullRequests(
+		ctx context.Context, repository Repository, options proposal.ListOptions,
+	) ([]proposal.PullRequest, error)
 }
 
 type Inventory interface {
@@ -186,6 +192,7 @@ func (s *Service) Inspect(ctx context.Context, projectRoot string) ([]Record, er
 	if len(requests) > 0 {
 		preflight = s.remote.ReadStatusPreflight(ctx, requests)
 	}
+	proposalResults := s.readProposals(ctx, prepared)
 	treeCache := make(map[repositoryRevision]treeResult)
 	for _, skill := range prepared {
 		entry := skill.entry
@@ -204,6 +211,7 @@ func (s *Service) Inspect(ctx context.Context, projectRoot string) ([]Record, er
 		}
 		resolved := refResult.Resolved
 		remoteChanged := false
+		currentTreeSHA := entry.TreeSHA
 		if resolved.CommitSHA != entry.CommitSHA {
 			tree, treeErr := s.repositoryTree(ctx, treeCache, skill.repository, resolved.CommitSHA)
 			if treeErr != nil {
@@ -211,7 +219,7 @@ func (s *Service) Inspect(ctx context.Context, projectRoot string) ([]Record, er
 				records = append(records, record)
 				continue
 			}
-			currentTreeSHA, treeErr := skillTreeSHA(tree, entry.SourcePath)
+			currentTreeSHA, treeErr = skillTreeSHA(tree, entry.SourcePath)
 			if treeErr != nil {
 				markRemoteUnknown(&record, "source_unavailable")
 				records = append(records, record)
@@ -227,8 +235,12 @@ func (s *Service) Inspect(ctx context.Context, projectRoot string) ([]Record, er
 				}
 			}
 		}
+		localChanged := skill.localTreeSHA != entry.TreeSHA
+		if remoteChanged && skill.localTreeSHA == currentTreeSHA {
+			localChanged = false
+		}
 		state := syncstate.CalculateChanges(
-			skill.localTreeSHA != entry.TreeSHA,
+			localChanged,
 			remoteChanged,
 			false,
 		)
@@ -275,11 +287,68 @@ func (s *Service) Inspect(ctx context.Context, projectRoot string) ([]Record, er
 			record.PushEligibility = Ineligible
 			record.PushReason = pointer(skill.pushSafety)
 		}
+		proposalResult := proposalResults[repositoryKey(skill.repository)]
+		if proposalResult.err != nil {
+			record.Proposal = &proposal.Summary{State: proposal.Unknown}
+			if record.PushEligibility == Eligible {
+				record.PushEligibility = Unknown
+				record.PushReason = pointer("proposal_unknown")
+			}
+		} else if summary, found := proposal.Summarize(
+			proposalResult.pulls, skill.repository, skill.ref.Name, entry.Name, entry.SourcePath,
+			skill.localTreeSHA, currentTreeSHA,
+		); found {
+			record.Proposal = &summary
+			if record.PushEligibility == Eligible {
+				record.PushEligibility = Ineligible
+				record.PushReason = pointer("open_proposal")
+			}
+		}
 		records = append(records, record)
 	}
 
 	sort.Slice(records, func(i, j int) bool { return records[i].Path < records[j].Path })
 	return records, nil
+}
+
+type proposalReadResult struct {
+	pulls []proposal.PullRequest
+	err   error
+}
+
+func (s *Service) readProposals(ctx context.Context, skills []preparedSkill) map[string]proposalReadResult {
+	repositories := make(map[string]Repository)
+	for _, skill := range skills {
+		if skill.ref.Kind == source.BranchRef {
+			repositories[repositoryKey(skill.repository)] = skill.repository
+		}
+	}
+	keys := make([]string, 0, len(repositories))
+	for key := range repositories {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	results := make(map[string]proposalReadResult, len(keys))
+	var mutex sync.Mutex
+	var wait sync.WaitGroup
+	limit := make(chan struct{}, 8)
+	for _, key := range keys {
+		key := key
+		wait.Add(1)
+		go func() {
+			defer wait.Done()
+			limit <- struct{}{}
+			defer func() { <-limit }()
+			pulls, err := s.remote.ListPullRequests(
+				ctx, repositories[key], proposal.ListOptions{State: "open"},
+			)
+			mutex.Lock()
+			results[key] = proposalReadResult{pulls: pulls, err: err}
+			mutex.Unlock()
+		}()
+	}
+	wait.Wait()
+	return results
 }
 
 type repositoryRevision struct {

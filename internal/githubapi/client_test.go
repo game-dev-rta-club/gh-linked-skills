@@ -3,6 +3,7 @@ package githubapi
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -179,6 +180,22 @@ func TestReadSkillRejectsTruncatedTree(t *testing.T) {
 
 	if err == nil || !strings.Contains(err.Error(), "truncated") {
 		t.Fatalf("ReadSkill() error = %v, want truncated tree error", err)
+	}
+}
+
+func TestReadSkillIdentifiesMissingPath(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(writer, `{"sha":"root","truncated":false,"tree":[]}`)
+	}))
+	defer server.Close()
+
+	_, err := newTestClient(t, server).ReadSkill(
+		context.Background(), status.Repository{Owner: "owner", Name: "repo"},
+		"skills/sample", strings.Repeat("a", 40),
+	)
+
+	if !errors.Is(err, source.ErrSkillNotFound) {
+		t.Fatalf("ReadSkill() error = %v, want ErrSkillNotFound", err)
 	}
 }
 

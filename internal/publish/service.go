@@ -11,6 +11,7 @@ import (
 
 	"github.com/game-dev-rta-club/gh-skill-linker/internal/gitcli"
 	"github.com/game-dev-rta-club/gh-skill-linker/internal/manifest"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/proposal"
 	"github.com/game-dev-rta-club/gh-skill-linker/internal/skill"
 	"github.com/game-dev-rta-club/gh-skill-linker/internal/source"
 	"github.com/game-dev-rta-club/gh-skill-linker/internal/workspace"
@@ -30,8 +31,11 @@ type LocalReader interface {
 	Read(path string) (workspace.LocalSkill, error)
 }
 
-type PermissionReader interface {
+type Remote interface {
 	ReadPermission(ctx context.Context, repository source.Repository, branch string) (bool, error)
+	ReadSkill(
+		ctx context.Context, repository source.Repository, skillPath string, revision string,
+	) (source.SkillSnapshot, error)
 }
 
 type Inventory interface {
@@ -49,34 +53,54 @@ type Publisher interface {
 	) (gitcli.PushResult, error)
 }
 
+type ProposalManager interface {
+	FindActive(
+		ctx context.Context,
+		repository source.Repository,
+		baseBranch, skillName, sourcePath string,
+	) (*proposal.PullRequest, error)
+	FindMerged(
+		ctx context.Context,
+		repository source.Repository,
+		baseBranch, skillName, sourcePath, treeSHA string,
+	) (*proposal.PullRequest, error)
+	Propose(ctx context.Context, request proposal.Request) (proposal.Result, error)
+}
+
 type Service struct {
-	registry   Registry
-	local      LocalReader
-	permission PermissionReader
-	inventory  Inventory
-	publisher  Publisher
+	registry  Registry
+	local     LocalReader
+	remote    Remote
+	inventory Inventory
+	publisher Publisher
+	proposals ProposalManager
 }
 
 type Result struct {
-	SkillName  string
-	Path       string
-	Repository string
-	SourcePath string
-	CommitSHA  string
-	TreeSHA    string
-	Published  bool
+	SkillName      string
+	Path           string
+	Repository     string
+	SourcePath     string
+	CommitSHA      string
+	TreeSHA        string
+	Published      bool
+	Proposed       bool
+	ProposalState  string
+	ProposalNumber int
+	ProposalURL    string
 }
 
 func NewService(
 	registry Registry,
 	local LocalReader,
-	permission PermissionReader,
+	remote Remote,
 	inventory Inventory,
 	publisher Publisher,
+	proposals ProposalManager,
 ) *Service {
 	return &Service{
-		registry: registry, local: local, permission: permission,
-		inventory: inventory, publisher: publisher,
+		registry: registry, local: local, remote: remote,
+		inventory: inventory, publisher: publisher, proposals: proposals,
 	}
 }
 
@@ -84,6 +108,23 @@ func (s *Service) Publish(
 	ctx context.Context,
 	projectRoot, repositoryInput, selector string,
 	ref source.Ref,
+) (Result, error) {
+	return s.publish(ctx, projectRoot, repositoryInput, selector, ref, false)
+}
+
+func (s *Service) PublishProposal(
+	ctx context.Context,
+	projectRoot, repositoryInput, selector string,
+	ref source.Ref,
+) (Result, error) {
+	return s.publish(ctx, projectRoot, repositoryInput, selector, ref, true)
+}
+
+func (s *Service) publish(
+	ctx context.Context,
+	projectRoot, repositoryInput, selector string,
+	ref source.Ref,
+	pullRequest bool,
 ) (Result, error) {
 	parsedRef, err := source.ParseRef(ref.FullName)
 	if err != nil || parsedRef != ref || ref.Kind != source.BranchRef {
@@ -139,12 +180,26 @@ func (s *Service) Publish(
 	if err := s.checkPushFiles(ctx, projectRoot, relativePath, local); err != nil {
 		return Result{}, err
 	}
-	canPush, err := s.permission.ReadPermission(ctx, repository, ref.Name)
+	canPush, err := s.remote.ReadPermission(ctx, repository, ref.Name)
 	if err != nil {
 		return Result{}, fmt.Errorf("publish eligibility unknown: permission_unknown: %w", err)
 	}
 	if !canPush {
 		return Result{}, fmt.Errorf("publish ineligible: repository_read_only")
+	}
+	if pullRequest {
+		return s.propose(
+			ctx, projectRoot, repositoryInput, repositoryURL, name, relativePath, sourcePath, ref, document, snapshot,
+		)
+	}
+	active, activeErr := s.proposals.FindActive(ctx, repository, ref.Name, name, sourcePath)
+	if activeErr != nil {
+		return Result{}, fmt.Errorf("publish eligibility unknown: proposal_unknown: %w", activeErr)
+	}
+	if active != nil {
+		return Result{}, fmt.Errorf(
+			"publish ineligible: open_proposal: close or merge %s, or rerun with --pr", active.URL,
+		)
 	}
 
 	pushResult, err := s.publisher.PublishSkill(
@@ -166,6 +221,97 @@ func (s *Service) Publish(
 		return result, fmt.Errorf("%w: %v; rerun publish to link the existing remote skill", ErrMetadataUpdate, err)
 	}
 	return result, nil
+}
+
+func (s *Service) propose(
+	ctx context.Context,
+	projectRoot, repositoryInput, repositoryURL, name, relativePath, sourcePath string,
+	ref source.Ref,
+	document manifest.Document,
+	snapshot source.SkillSnapshot,
+) (Result, error) {
+	repository, reason := source.ParseRepository(repositoryURL)
+	if reason != "" {
+		return Result{}, fmt.Errorf("invalid repository: %s", reason)
+	}
+	current, err := s.remote.ReadSkill(ctx, repository, sourcePath, ref.FullName)
+	if err == nil {
+		if current.Exact(snapshot) {
+			return s.link(projectRoot, repositoryInput, name, relativePath, sourcePath, ref, document, current)
+		}
+		merged, mergedErr := s.proposals.FindMerged(
+			ctx, repository, ref.Name, name, sourcePath, current.TreeSHA,
+		)
+		if mergedErr != nil {
+			return Result{}, fmt.Errorf("inspect merged proposal: %w", mergedErr)
+		}
+		if merged != nil {
+			return s.link(projectRoot, repositoryInput, name, relativePath, sourcePath, ref, document, current)
+		}
+		return Result{}, fmt.Errorf(
+			"publish ineligible: remote_skill_exists: %s:%s already contains different content",
+			repositoryInput, sourcePath,
+		)
+	} else if !errors.Is(err, source.ErrSkillNotFound) {
+		return Result{}, fmt.Errorf("read publish target: %w", err)
+	}
+
+	proposed, err := s.proposals.Propose(ctx, proposal.Request{
+		Repository: repository, RepositoryURL: repositoryURL, BaseBranch: ref.Name,
+		SkillName: name, SourcePath: sourcePath,
+		Snapshot: snapshot, Title: "feat(skill): publish " + name,
+		Message: "feat(skill): publish " + name,
+	})
+	if err != nil {
+		return Result{}, err
+	}
+	return publishProposalResult(repositoryInput, name, relativePath, sourcePath, snapshot.TreeSHA, proposed), nil
+}
+
+func (s *Service) link(
+	projectRoot, repositoryInput, name, relativePath, sourcePath string,
+	ref source.Ref,
+	document manifest.Document,
+	current source.SkillSnapshot,
+) (Result, error) {
+	result := Result{
+		SkillName: name, Path: relativePath, Repository: repositoryInput, SourcePath: sourcePath,
+		CommitSHA: current.CommitSHA, TreeSHA: current.TreeSHA,
+	}
+	entry := manifest.Skill{
+		Repository: "https://github.com/" + repositoryInput + ".git",
+		SourcePath: sourcePath, SourceRef: ref.FullName,
+		RefSHA: current.CommitSHA, CommitSHA: current.CommitSHA, TreeSHA: current.TreeSHA,
+		Destination: relativePath,
+	}
+	if err := s.registry.Add(projectRoot, name, document, entry); err != nil {
+		return result, fmt.Errorf("link merged proposal: %w", err)
+	}
+	return result, nil
+}
+
+func publishProposalResult(
+	repository, name, relativePath, sourcePath, treeSHA string,
+	result proposal.Result,
+) Result {
+	state := "waiting"
+	switch {
+	case result.Created:
+		state = "created"
+	case result.Updated:
+		state = "updated"
+	case result.Recovered:
+		state = "recovered"
+	case result.Applied:
+		state = "applied"
+	case result.Merged:
+		state = "merged"
+	}
+	return Result{
+		SkillName: name, Path: relativePath, Repository: repository, SourcePath: sourcePath,
+		TreeSHA: treeSHA, Proposed: !result.Applied && !result.Merged, ProposalState: state,
+		ProposalNumber: result.PullRequest.Number, ProposalURL: result.PullRequest.URL,
+	}
 }
 
 func resolveLocalSkillPath(projectRoot, selector string) (string, string, error) {

@@ -9,7 +9,8 @@ status: implemented
 Reject a tag source with `source_ref_read_only` before local validation,
 permission checks, or remote operations.
 
-Return the local snapshot to the same source branch as a normal commit.
+Return the local snapshot to the same source branch as a normal commit. With
+`--pr`, send it through [the proposal engine](proposals.md) instead.
 
 ## PUSH-001 Eligibility enforcement
 
@@ -23,6 +24,7 @@ Recheck:
 - files are tracked or untracked but not ignored
 - repository push permission exists
 - current source skill tree equals the baseline
+- direct mode has no open managed proposal
 
 Tracked and untracked non-ignored files can be pushed. A tracked file remains
 eligible even when it matches an ignore rule. A new file does not need to be
@@ -51,3 +53,10 @@ when there is no difference.
 
 Never force. Non-fast-forward means `remote changed`. If the manifest fails
 after a push, do not roll back the remote; require a pull to reconcile.
+
+## PUSH-004 Pull request mode
+
+Do not advance the manifest baseline. Create or update the proposal using the
+current source tree as base and the exact local Git tree as proposed content.
+If the source tree differs from the manifest baseline, reject before proposal
+mutation and require `pull`.

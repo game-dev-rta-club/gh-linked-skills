@@ -6,8 +6,8 @@ status: implemented
 
 # GitHub
 
-Source reads, publication, and push-permission checks are limited to GitHub.com.
-The extension does not create repositories.
+Source reads, publication, pull requests, and push-permission checks are limited
+to GitHub.com. The extension does not create repositories.
 
 ## GITHUB-001 Authentication and host
 
@@ -55,7 +55,7 @@ tree rejects listing, name selection, and `--all`. Status also treats a
 truncated tree as unknown. Exact-path install does not use full-repository
 discovery.
 
-There is no persistent cache, pagination, size limit, timeout, or retry.
+There is no persistent cache, tree size override, timeout, or retry.
 
 GitHub API limits still apply. Recursive trees are limited to 100,000 entries
 or 7 MB, and `truncated=true` is rejected. Each blob is limited to 100 MB. See
@@ -76,3 +76,12 @@ unknown permission.
 
 This check cannot fully represent branch protection and rulesets. GitHub may
 still reject the final push.
+
+## GITHUB-004 Pull requests
+
+Use REST pull request endpoints to list, create, and update PR bodies. Listing
+paginates at 100 items. Status lists open PRs once per repository. Proposal
+recovery may list all PRs for one exact generated head branch.
+
+Only same-repository PRs with a generated branch and valid hidden metadata are
+managed. The extension does not merge, close, approve, or delete them.

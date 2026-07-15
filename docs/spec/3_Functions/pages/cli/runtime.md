@@ -14,9 +14,10 @@ public syntax and output. This page covers dispatch and preflight behavior.
 Commands: `install`, `publish`, `status`, `pull`, `push`, and `uninstall`.
 
 - install: `OWNER/REPO [SKILL|PATH | --all] (--branch BRANCH | --tag TAG) [--accept-moved-tag]`
-- publish: `OWNER/REPO SKILL --branch BRANCH`
+- publish: `OWNER/REPO SKILL --branch BRANCH [--pr]`
 - status: no flag, or `--json` only
-- pull/push: exactly one selector
+- pull: exactly one selector
+- push: exactly one selector, with optional `--pr`
 - uninstall: exactly one selector, with optional `--force`
 
 The CLI validates install and publish repositories as `OWNER/REPO`. A missing
@@ -48,7 +49,7 @@ over a missing token.
 ## CLI-004 Status rendering
 
 Sort by path and render a table or JSON. JSON disables HTML escaping. The status
-service calculates state and reason values.
+service calculates file state, proposal state, and reason values.
 
 ## CLI-005 Mutation rendering
 

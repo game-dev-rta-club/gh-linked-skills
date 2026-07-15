@@ -18,6 +18,7 @@ import (
 	"github.com/game-dev-rta-club/gh-skill-linker/internal/githubapi"
 	installapp "github.com/game-dev-rta-club/gh-skill-linker/internal/install"
 	"github.com/game-dev-rta-club/gh-skill-linker/internal/manifest"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/proposal"
 	publishapp "github.com/game-dev-rta-club/gh-skill-linker/internal/publish"
 	pullapp "github.com/game-dev-rta-club/gh-skill-linker/internal/pull"
 	pushapp "github.com/game-dev-rta-club/gh-skill-linker/internal/push"
@@ -48,6 +49,7 @@ type PullService interface {
 
 type PushService interface {
 	Push(ctx context.Context, projectRoot, selector string) (pushapp.Result, error)
+	PushProposal(ctx context.Context, projectRoot, selector string) (pushapp.Result, error)
 }
 
 type UninstallService interface {
@@ -60,6 +62,11 @@ type UninstallService interface {
 
 type PublishService interface {
 	Publish(
+		ctx context.Context,
+		projectRoot, repository, selector string,
+		ref source.Ref,
+	) (publishapp.Result, error)
+	PublishProposal(
 		ctx context.Context,
 		projectRoot, repository, selector string,
 		ref source.Ref,
@@ -113,8 +120,11 @@ func needsDependencies(args []string) bool {
 		return err == nil
 	case "status":
 		return len(args) == 1 || (len(args) == 2 && args[1] == "--json")
-	case "pull", "push":
+	case "pull":
 		return len(args) == 2 && args[1] != ""
+	case "push":
+		_, err := parsePushArgs(args[1:])
+		return err == nil
 	case "uninstall":
 		_, err := parseUninstallArgs(args[1:])
 		return err == nil
@@ -167,6 +177,7 @@ func defaultDependencies(args []string) (Dependencies, error) {
 		github,
 		gitcli.New(gitRunner),
 		gitcli.New(pushGitRunner),
+		proposal.NewService(github, gitcli.New(pushGitRunner)),
 	)
 	dependencies.Publish = publishapp.NewService(
 		manifest.Store{},
@@ -174,6 +185,7 @@ func defaultDependencies(args []string) (Dependencies, error) {
 		github,
 		gitcli.New(gitRunner),
 		gitcli.New(pushGitRunner),
+		proposal.NewService(github, gitcli.New(pushGitRunner)),
 	)
 	dependencies.ManagedInstaller = installapp.NewService(github, manifest.Store{}, workspace.Writer{})
 	return dependencies, nil
@@ -287,9 +299,10 @@ func runUninstall(
 }
 
 type publishRequest struct {
-	repository string
-	selector   string
-	ref        source.Ref
+	repository  string
+	selector    string
+	ref         source.Ref
+	pullRequest bool
 }
 
 func parsePublishArgs(args []string) (publishRequest, error) {
@@ -309,6 +322,11 @@ func parsePublishArgs(args []string) (publishRequest, error) {
 			}
 			branch = args[index+1]
 			index++
+		case "--pr":
+			if request.pullRequest {
+				return publishRequest{}, fmt.Errorf("--pr may be specified only once")
+			}
+			request.pullRequest = true
 		default:
 			if strings.HasPrefix(args[index], "-") {
 				return publishRequest{}, fmt.Errorf("unknown publish flag %q", args[index])
@@ -340,7 +358,7 @@ func runPublish(
 	stderr io.Writer,
 	dependencies Dependencies,
 ) int {
-	const usage = "usage: gh skill-linker publish OWNER/REPO SKILL --branch BRANCH"
+	const usage = "usage: gh skill-linker publish OWNER/REPO SKILL --branch BRANCH [--pr]"
 	request, err := parsePublishArgs(args)
 	if err != nil {
 		_, _ = fmt.Fprintln(stderr, usage)
@@ -360,15 +378,27 @@ func runPublish(
 		_, _ = fmt.Fprintln(stderr, err)
 		return 1
 	}
-	result, err := dependencies.Publish.Publish(
-		ctx, root, request.repository, request.selector, request.ref,
-	)
+	var result publishapp.Result
+	if request.pullRequest {
+		result, err = dependencies.Publish.PublishProposal(
+			ctx, root, request.repository, request.selector, request.ref,
+		)
+	} else {
+		result, err = dependencies.Publish.Publish(
+			ctx, root, request.repository, request.selector, request.ref,
+		)
+	}
 	if err != nil {
 		_, _ = fmt.Fprintln(stderr, err)
 		return 1
 	}
 	remote := result.Repository + ":" + result.SourcePath
-	if result.Published {
+	if result.ProposalURL != "" {
+		_, _ = fmt.Fprintf(
+			stdout, "%s proposal #%d for %s: %s\n",
+			result.ProposalState, result.ProposalNumber, remote, result.ProposalURL,
+		)
+	} else if result.Published {
 		_, _ = fmt.Fprintf(stdout, "published %s to %s\n", result.SkillName, remote)
 	} else {
 		_, _ = fmt.Fprintf(stdout, "linked %s to existing %s\n", result.SkillName, remote)
@@ -554,8 +584,10 @@ func runPush(
 	stderr io.Writer,
 	dependencies Dependencies,
 ) int {
-	if len(args) != 1 || args[0] == "" {
-		_, _ = fmt.Fprintln(stderr, "usage: gh skill-linker push <skill>")
+	request, err := parsePushArgs(args)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, "usage: gh skill-linker push SKILL [--pr]")
+		_, _ = fmt.Fprintln(stderr, err)
 		return 2
 	}
 	if dependencies.Preflight == nil || dependencies.Root == nil || dependencies.Push == nil {
@@ -571,17 +603,57 @@ func runPush(
 		_, _ = fmt.Fprintln(stderr, err)
 		return 1
 	}
-	result, err := dependencies.Push.Push(ctx, root, args[0])
+	var result pushapp.Result
+	if request.pullRequest {
+		result, err = dependencies.Push.PushProposal(ctx, root, request.selector)
+	} else {
+		result, err = dependencies.Push.Push(ctx, root, request.selector)
+	}
 	if err != nil {
 		_, _ = fmt.Fprintln(stderr, err)
 		return 1
 	}
-	if result.Pushed {
+	if result.ProposalURL != "" {
+		_, _ = fmt.Fprintf(
+			stdout, "%s proposal #%d for %s: %s\n",
+			result.ProposalState, result.ProposalNumber, result.Path, result.ProposalURL,
+		)
+	} else if result.Pushed {
 		_, _ = fmt.Fprintf(stdout, "pushed %s to %s\n", result.Path, result.TreeSHA)
 	} else {
 		_, _ = fmt.Fprintf(stdout, "%s has no source changes to push\n", result.Path)
 	}
 	return 0
+}
+
+type pushRequest struct {
+	selector    string
+	pullRequest bool
+}
+
+func parsePushArgs(args []string) (pushRequest, error) {
+	request := pushRequest{}
+	for _, argument := range args {
+		switch argument {
+		case "--pr":
+			if request.pullRequest {
+				return pushRequest{}, fmt.Errorf("--pr may be specified only once")
+			}
+			request.pullRequest = true
+		default:
+			if strings.HasPrefix(argument, "-") {
+				return pushRequest{}, fmt.Errorf("unknown push flag %q", argument)
+			}
+			if request.selector != "" {
+				return pushRequest{}, fmt.Errorf("exactly one skill must be specified")
+			}
+			request.selector = argument
+		}
+	}
+	if request.selector == "" {
+		return pushRequest{}, fmt.Errorf("skill is required")
+	}
+	return request, nil
 }
 
 func runPull(
@@ -682,7 +754,8 @@ func runStatus(
 		return 1
 	}
 	for _, record := range records {
-		if hasLocalChanges(record.State) && record.PushEligibility != status.Eligible {
+		if hasLocalChanges(record.State) && record.PushEligibility != status.Eligible &&
+			(record.Proposal == nil || record.Proposal.State != proposal.Waiting) {
 			_, _ = fmt.Fprintf(
 				stderr,
 				"warning: %s has local changes but push is %s (%s); changes remain only in this project\n",
@@ -697,7 +770,7 @@ func runStatus(
 
 func writeStatusTable(writer io.Writer, records []status.Record) error {
 	table := tabwriter.NewWriter(writer, 0, 4, 2, ' ', 0)
-	if _, err := fmt.Fprintln(table, "SKILL\tPATH\tSTATE\tPULL\tPUSH"); err != nil {
+	if _, err := fmt.Fprintln(table, "SKILL\tPATH\tSTATE\tPROPOSAL\tPULL\tPUSH"); err != nil {
 		return err
 	}
 	for _, record := range records {
@@ -707,10 +780,11 @@ func writeStatusTable(writer io.Writer, records []status.Record) error {
 		}
 		if _, err := fmt.Fprintf(
 			table,
-			"%s\t%s\t%s\t%s\t%s\n",
+			"%s\t%s\t%s\t%s\t%s\t%s\n",
 			record.SkillName,
 			record.Path,
 			state,
+			formatProposal(record.Proposal),
 			formatEligibility(record.PullEligibility, record.PullReason),
 			formatEligibility(record.PushEligibility, record.PushReason),
 		); err != nil {
@@ -718,6 +792,16 @@ func writeStatusTable(writer io.Writer, records []status.Record) error {
 		}
 	}
 	return table.Flush()
+}
+
+func formatProposal(summary *proposal.Summary) string {
+	if summary == nil {
+		return "-"
+	}
+	if summary.Number == 0 {
+		return string(summary.State)
+	}
+	return fmt.Sprintf("#%d %s", summary.Number, summary.State)
 }
 
 func formatEligibility(eligibility status.Eligibility, reason *string) string {

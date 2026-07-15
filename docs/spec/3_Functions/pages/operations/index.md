@@ -11,5 +11,6 @@ status: implemented
 - [Status](status.md)
 - [Pull](pull.md)
 - [Push](push.md)
+- [Pull request proposals](proposals.md)
 - [Uninstall](uninstall.md)
 - [Conflict merge](conflict-merge.md)

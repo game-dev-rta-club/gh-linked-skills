@@ -6,9 +6,9 @@ status: implemented
 
 # Status
 
-`STATE` shows the direction of differences. `PULL` and `PUSH` show whether each
-operation is currently available. Only skills registered in the manifest are
-shown.
+`STATE` shows file synchronization. `PROPOSAL` shows the separate pull request
+state. `PULL` and `PUSH` show whether direct operations are available. Only
+skills registered in the manifest are shown.
 
 ```bash
 gh skill-linker status
@@ -17,15 +17,15 @@ gh skill-linker status
 Example:
 
 ```text
-SKILL          PATH                                STATE     PULL                              PUSH
-shared-rules   .agents/skills/shared-rules         clean     eligible                          eligible
-review-helper  .agents/skills/review-helper        pull      eligible                          ineligible (remote_changed)
-local-notes    .agents/skills/local-notes          push      eligible                          eligible
-idea-refine    .agents/skills/idea-refine          conflict  ineligible (unresolved_conflict)  ineligible (unresolved_conflict)
-release-skill  .agents/skills/release-skill        clean     ineligible (fixed_source_ref)      ineligible (source_ref_read_only)
+SKILL          PATH                                STATE     PROPOSAL    PULL                              PUSH
+shared-rules   .agents/skills/shared-rules         clean     -           eligible                          eligible
+review-helper  .agents/skills/review-helper        pull      #18 waiting eligible                          ineligible (remote_changed)
+local-notes    .agents/skills/local-notes          push      #24 update  eligible                          ineligible (open_proposal)
+idea-refine    .agents/skills/idea-refine          conflict  -           ineligible (unresolved_conflict)  ineligible (unresolved_conflict)
 ```
 
 - `STATE`: direction of differences between local and source
+- `PROPOSAL`: managed pull request number and state
 - `PULL` / `PUSH`: whether the command can run
 - parenthesized value: reason an operation cannot run
 
@@ -38,6 +38,16 @@ release-skill  .agents/skills/release-skill        clean     ineligible (fixed_s
 
 When the source tree SHA differs from the baseline, `pull` takes precedence
 even if file content is identical.
+
+| Proposal | Meaning |
+| --- | --- |
+| `waiting` | Pull request already contains the local tree |
+| `update` | Local changes can update the same pull request |
+| `source_changed` | Pull and resolve before updating the pull request |
+| `obsolete` | Local now matches the source; close the pull request |
+| `diverged` | Proposal branch or metadata changed outside the extension |
+| `ambiguous` | More than one managed pull request exists |
+| `unknown` | Pull request lookup failed; file state remains valid |
 
 | Reason | Response |
 | --- | --- |
@@ -53,6 +63,8 @@ even if file content is identical.
 | `permission_unknown` | Check network, authentication, and repository access |
 | `repository_read_only` | Use the source for pull-only operation |
 | `remote_changed` | Pull before pushing |
+| `open_proposal` | Merge or close the proposal, or use `push --pr` |
+| `proposal_unknown` | Retry after GitHub pull request lookup recovers |
 | `fixed_source_ref` | The tag is fixed; reinstall from a different tag to change it |
 | `source_ref_read_only` | The tag is fixed and cannot receive a push |
 | `tag_moved` | Reinstall with `--accept-moved-tag` only if you trust the moved tag |

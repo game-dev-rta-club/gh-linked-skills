@@ -16,6 +16,8 @@ information the user can inspect. Guarantees differ by operation.
   the original directory if the manifest update fails
 - push: recheck the source skill tree SHA after cloning and use only a normal
   push
+- proposal: use one generated same-repository branch per skill, reject unknown
+  ownership or external changes, and never force-push or rebase
 - uninstall: preserve local changes unless `--force` explicitly discards
   differences from the synchronization point
 - merge: leave markers for text conflicts and stop before workspace changes for

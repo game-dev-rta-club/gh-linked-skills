@@ -27,9 +27,9 @@ The install prints the destination of each skill. A successful status check
 looks like this:
 
 ```text
-SKILL                PATH                                STATE  PULL                           PUSH
-rubber-duck-caller   .agents/skills/rubber-duck-caller   clean  ineligible (fixed_source_ref)  ineligible (source_ref_read_only)
-rubber-duck-partner  .agents/skills/rubber-duck-partner  clean  ineligible (fixed_source_ref)  ineligible (source_ref_read_only)
+SKILL                PATH                                STATE  PROPOSAL  PULL                           PUSH
+rubber-duck-caller   .agents/skills/rubber-duck-caller   clean  -         ineligible (fixed_source_ref)  ineligible (source_ref_read_only)
+rubber-duck-partner  .agents/skills/rubber-duck-partner  clean  -         ineligible (fixed_source_ref)  ineligible (source_ref_read_only)
 ```
 
 This is expected for a tag-backed install: the files are clean, while pull and
@@ -90,7 +90,9 @@ agent and should be treated as trusted code.
 | Check local and source changes | `gh skill-linker status` |
 | Bring source changes into the project | `gh skill-linker pull SKILL` |
 | Send a local skill change to its source branch | `gh skill-linker push SKILL` |
+| Propose a local skill change for review | `gh skill-linker push SKILL --pr` |
 | Publish a new local skill | `gh skill-linker publish OWNER/REPO SKILL --branch BRANCH` |
+| Propose a new skill for review | `gh skill-linker publish OWNER/REPO SKILL --branch BRANCH --pr` |
 | Stop managing a skill | `gh skill-linker uninstall SKILL` |
 
 Run `gh skill-linker <command> --help` for complete arguments and examples.

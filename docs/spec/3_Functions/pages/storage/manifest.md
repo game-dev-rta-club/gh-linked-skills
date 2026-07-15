@@ -15,6 +15,8 @@ it represents an empty schema-v2 document. It must be a regular file. Reject
 symlinks, unknown fields, multiple JSON values, trailing data, and invalid
 schemas.
 
+The manifest stores no pull request or proposal state.
+
 ## MAN-002 Schema version 2
 
 ```json

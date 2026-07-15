@@ -7,7 +7,7 @@ status: implemented
 # Status
 
 Calculate state from local, source, and manifest tree identity, then determine
-pull and push eligibility.
+pull and direct-push eligibility. Report proposal state separately.
 
 ## STAT-001 Managed inventory and states
 
@@ -30,12 +30,24 @@ reason is `tag_moved`. Do not check permission for a tag.
 | same | changed | `pull` |
 | changed | changed | `conflict` |
 
+When local already equals the changed current source tree, report `pull` so the
+manifest baseline can advance.
+
 If markers exist, return `conflict` without reading remote content. When current
 commit SHA equals the baseline, do not read the repository tree. Otherwise,
 read a tree once per repository and commit, then compare the current tree SHA.
 Do not compare semantic meaning.
 
-## STAT-002 Eligibility and reason precedence
+## STAT-002 Proposal state
+
+List open pull requests once per repository. Classify each managed branch skill
+as no proposal, `waiting`, `update`, `source_changed`, `obsolete`, `diverged`,
+or `ambiguous`. A lookup error produces `unknown` without discarding file state.
+
+An open proposal makes direct push ineligible with `open_proposal`. A lookup
+error changes otherwise eligible direct push to `unknown (proposal_unknown)`.
+
+## STAT-003 Eligibility and reason precedence
 
 An invalid path, file, source, or marker ends evaluation early. Then validate
 local frontmatter and Git inventory before calculating state from local/current

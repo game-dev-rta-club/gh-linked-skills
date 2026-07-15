@@ -12,10 +12,10 @@ of truth for its command syntax, behavior, and output.
 | Command | Purpose | Details |
 | --- | --- | --- |
 | install | Register a skill in the project | [Install a skill](install-skill.md) |
-| publish | Publish an unmanaged skill to a source for the first time | [Publish](publish.md) |
+| publish | Publish or propose an unmanaged skill to a source | [Publish](publish.md) |
 | status | Inspect synchronization state | [Status](status.md) |
 | pull | Bring source changes into the project | [Pull](pull.md) |
-| push | Send local changes to the source | [Push](push.md) |
+| push | Push or propose local changes | [Push](push.md) |
 | uninstall | Remove a skill and its management record from the project | [Uninstall](uninstall.md) |
 
 ## Help
