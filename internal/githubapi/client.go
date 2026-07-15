@@ -159,7 +159,7 @@ func (c *Client) ReadSkill(
 		}
 	}
 	if !foundSkillPath {
-		return source.SkillSnapshot{}, fmt.Errorf("skill path %q does not exist at %s", cleanPath, revision)
+		return source.SkillSnapshot{}, fmt.Errorf("%w: skill path %q does not exist at %s", source.ErrSkillNotFound, cleanPath, revision)
 	}
 	if _, ok := files["SKILL.md"]; !ok {
 		return source.SkillSnapshot{}, fmt.Errorf("skill path %q has no SKILL.md at %s", cleanPath, revision)

@@ -78,6 +78,25 @@ func (service *Service) FindActive(
 	}, BranchPrefix(skillName, sourcePath))
 }
 
+func (service *Service) FindMerged(
+	ctx context.Context,
+	repository source.Repository,
+	baseBranch, skillName, sourcePath, treeSHA string,
+) (*PullRequest, error) {
+	if repository.Owner == "" || repository.Name == "" || baseBranch == "" || skillName == "" ||
+		sourcePath == "" || !shaPattern.MatchString(treeSHA) {
+		return nil, fmt.Errorf("repository, base branch, skill identity, and current tree SHA are required")
+	}
+	pulls, err := service.remote.ListPullRequests(ctx, repository, ListOptions{State: "all", Base: baseBranch})
+	if err != nil {
+		return nil, err
+	}
+	return matchingMergedPull(pulls, Request{
+		Repository: repository, BaseBranch: baseBranch, SkillName: skillName, SourcePath: sourcePath,
+		Snapshot: source.SkillSnapshot{TreeSHA: treeSHA},
+	}), nil
+}
+
 func (service *Service) Propose(ctx context.Context, request Request) (Result, error) {
 	if err := validateRequest(request); err != nil {
 		return Result{}, err
@@ -249,10 +268,11 @@ func selectActivePull(pulls []PullRequest, request Request, prefix string) (*Pul
 
 func matchingMergedPull(pulls []PullRequest, request Request) *PullRequest {
 	repository := request.Repository.Owner + "/" + request.Repository.Name
+	prefix := BranchPrefix(request.SkillName, request.SourcePath) + "/"
 	for index := range pulls {
 		pull := &pulls[index]
 		if !pull.Merged || pull.HeadRepository != repository || pull.BaseRepository != repository ||
-			pull.BaseRef != request.BaseBranch {
+			pull.BaseRef != request.BaseBranch || !strings.HasPrefix(pull.HeadRef, prefix) {
 			continue
 		}
 		metadata, err := ParseMetadata(pull.Body)

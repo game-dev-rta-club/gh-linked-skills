@@ -13,7 +13,7 @@ USAGE
 
 AVAILABLE COMMANDS
   install   Discover and install managed skills from a repository
-  publish   Publish an unmanaged local skill to a repository
+  publish   Publish or propose an unmanaged local skill to a repository
   status    Show project skill synchronization state
   pull      Pull one managed skill from its source branch
   push      Push one managed skill directly or propose it with a pull request
@@ -31,6 +31,9 @@ EXAMPLES
 
   # Publish a new local skill and begin managing it
   $ gh skill-linker publish OWNER/REPO SKILL --branch BRANCH
+
+  # Propose a new skill through a pull request
+  $ gh skill-linker publish OWNER/REPO SKILL --branch BRANCH --pr
 
   # Install a fixed, read-only tag snapshot
   $ gh skill-linker install OWNER/REPO SKILL --tag TAG
@@ -61,8 +64,13 @@ An empty repository is initialized with the explicit branch. In a non-empty
 repository, the branch must already exist. Existing different content is never
 overwritten. Exact existing content is linked without creating a commit.
 
+Use --pr to create or update one pull request for the skill. The manifest is
+not changed until the pull request is merged. Rerun the same command after the
+merge to link the skill. If local work continued meanwhile, the merged revision
+is linked first and the newer local changes remain available for push --pr.
+
 USAGE
-  gh skill-linker publish OWNER/REPO SKILL --branch BRANCH
+  gh skill-linker publish OWNER/REPO SKILL --branch BRANCH [--pr]
 
 ARGUMENTS
   OWNER/REPO   Existing GitHub repository that will own the skill
@@ -70,11 +78,13 @@ ARGUMENTS
   BRANCH       Branch used by later pull and push operations
 
 FLAGS
-      --branch string   Source branch
+  --branch string   Source branch
+  --pr              Create or update a pull request
   -h, --help            Show help for command
 
 EXAMPLES
   $ gh skill-linker publish nikollson/agent-skills my-skill --branch main
+  $ gh skill-linker publish game-dev-rta-club/agent-skills my-skill --branch main --pr
 
 LEARN MORE
   Run gh skill-linker status after publishing.

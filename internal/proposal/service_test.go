@@ -284,6 +284,40 @@ func TestFindActiveIgnoresUnrelatedPullRequests(t *testing.T) {
 	}
 }
 
+func TestFindMergedReturnsProposalThatProducedCurrentTree(t *testing.T) {
+	pull := openPull(t, 'a', 'b', 'c')
+	pull.State = "closed"
+	pull.Merged = true
+	remote := &fakeRemote{open: []PullRequest{pull}}
+
+	found, err := NewService(remote, &fakeGit{}).FindMerged(
+		context.Background(), source.Repository{Owner: "owner", Name: "repo"},
+		"main", "sample", "skills/sample", strings.Repeat("b", 40),
+	)
+
+	if err != nil || found == nil || found.Number != pull.Number {
+		t.Fatalf("FindMerged() = %#v, %v", found, err)
+	}
+	if len(remote.listCalls) != 1 || remote.listCalls[0].State != "all" {
+		t.Fatalf("list calls = %#v", remote.listCalls)
+	}
+}
+
+func TestFindMergedIgnoresDifferentProposedTree(t *testing.T) {
+	pull := openPull(t, 'a', 'b', 'c')
+	pull.State = "closed"
+	pull.Merged = true
+
+	found, err := NewService(&fakeRemote{open: []PullRequest{pull}}, &fakeGit{}).FindMerged(
+		context.Background(), source.Repository{Owner: "owner", Name: "repo"},
+		"main", "sample", "skills/sample", strings.Repeat("d", 40),
+	)
+
+	if err != nil || found != nil {
+		t.Fatalf("FindMerged() = %#v, %v; want nil", found, err)
+	}
+}
+
 func TestMatchingMergedPullRequiresSameRepositoryAndBase(t *testing.T) {
 	local := snapshotWithTree('b')
 	request := proposalRequest(local, strings.Repeat("a", 40))

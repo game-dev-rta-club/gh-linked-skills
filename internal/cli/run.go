@@ -66,6 +66,11 @@ type PublishService interface {
 		projectRoot, repository, selector string,
 		ref source.Ref,
 	) (publishapp.Result, error)
+	PublishProposal(
+		ctx context.Context,
+		projectRoot, repository, selector string,
+		ref source.Ref,
+	) (publishapp.Result, error)
 }
 
 type ManagedInstaller interface {
@@ -180,6 +185,7 @@ func defaultDependencies(args []string) (Dependencies, error) {
 		github,
 		gitcli.New(gitRunner),
 		gitcli.New(pushGitRunner),
+		proposal.NewService(github, gitcli.New(pushGitRunner)),
 	)
 	dependencies.ManagedInstaller = installapp.NewService(github, manifest.Store{}, workspace.Writer{})
 	return dependencies, nil
@@ -293,9 +299,10 @@ func runUninstall(
 }
 
 type publishRequest struct {
-	repository string
-	selector   string
-	ref        source.Ref
+	repository  string
+	selector    string
+	ref         source.Ref
+	pullRequest bool
 }
 
 func parsePublishArgs(args []string) (publishRequest, error) {
@@ -315,6 +322,11 @@ func parsePublishArgs(args []string) (publishRequest, error) {
 			}
 			branch = args[index+1]
 			index++
+		case "--pr":
+			if request.pullRequest {
+				return publishRequest{}, fmt.Errorf("--pr may be specified only once")
+			}
+			request.pullRequest = true
 		default:
 			if strings.HasPrefix(args[index], "-") {
 				return publishRequest{}, fmt.Errorf("unknown publish flag %q", args[index])
@@ -346,7 +358,7 @@ func runPublish(
 	stderr io.Writer,
 	dependencies Dependencies,
 ) int {
-	const usage = "usage: gh skill-linker publish OWNER/REPO SKILL --branch BRANCH"
+	const usage = "usage: gh skill-linker publish OWNER/REPO SKILL --branch BRANCH [--pr]"
 	request, err := parsePublishArgs(args)
 	if err != nil {
 		_, _ = fmt.Fprintln(stderr, usage)
@@ -366,15 +378,27 @@ func runPublish(
 		_, _ = fmt.Fprintln(stderr, err)
 		return 1
 	}
-	result, err := dependencies.Publish.Publish(
-		ctx, root, request.repository, request.selector, request.ref,
-	)
+	var result publishapp.Result
+	if request.pullRequest {
+		result, err = dependencies.Publish.PublishProposal(
+			ctx, root, request.repository, request.selector, request.ref,
+		)
+	} else {
+		result, err = dependencies.Publish.Publish(
+			ctx, root, request.repository, request.selector, request.ref,
+		)
+	}
 	if err != nil {
 		_, _ = fmt.Fprintln(stderr, err)
 		return 1
 	}
 	remote := result.Repository + ":" + result.SourcePath
-	if result.Published {
+	if result.ProposalURL != "" {
+		_, _ = fmt.Fprintf(
+			stdout, "%s proposal #%d for %s: %s\n",
+			result.ProposalState, result.ProposalNumber, remote, result.ProposalURL,
+		)
+	} else if result.Published {
 		_, _ = fmt.Fprintf(stdout, "published %s to %s\n", result.SkillName, remote)
 	} else {
 		_, _ = fmt.Fprintf(stdout, "linked %s to existing %s\n", result.SkillName, remote)

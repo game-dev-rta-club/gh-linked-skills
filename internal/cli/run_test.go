@@ -51,13 +51,14 @@ type fakePush struct {
 }
 
 type fakePublish struct {
-	root       string
-	repository string
-	selector   string
-	ref        source.Ref
-	result     publishapp.Result
-	err        error
-	calls      int
+	root          string
+	repository    string
+	selector      string
+	ref           source.Ref
+	result        publishapp.Result
+	err           error
+	calls         int
+	proposalCalls int
 }
 
 type fakeUninstaller struct {
@@ -85,6 +86,16 @@ func (f *fakePublish) Publish(
 	ref source.Ref,
 ) (publishapp.Result, error) {
 	f.calls++
+	f.root, f.repository, f.selector, f.ref = root, repository, selector, ref
+	return f.result, f.err
+}
+
+func (f *fakePublish) PublishProposal(
+	_ context.Context,
+	root, repository, selector string,
+	ref source.Ref,
+) (publishapp.Result, error) {
+	f.proposalCalls++
 	f.root, f.repository, f.selector, f.ref = root, repository, selector, ref
 	return f.result, f.err
 }
@@ -578,6 +589,32 @@ func TestRunPublishReportsExistingRemoteLink(t *testing.T) {
 	}
 }
 
+func TestRunPublishProposalReportsPullRequest(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	publisher := &fakePublish{result: publishapp.Result{
+		SkillName: "sample", Path: ".agents/skills/sample", Repository: "nikollson/skills",
+		SourcePath: "skills/sample", Proposed: true, ProposalState: "created",
+		ProposalNumber: 42, ProposalURL: "https://github.com/nikollson/skills/pull/42",
+	}}
+
+	exitCode := RunWithDependencies(
+		context.Background(),
+		[]string{"publish", "nikollson/skills", "sample", "--branch", "main", "--pr"},
+		&stdout, &stderr,
+		Dependencies{Preflight: fakePreflight{}, Root: fakeRoot{root: "/repo"}, Publish: publisher},
+	)
+
+	if exitCode != 0 || publisher.proposalCalls != 1 || publisher.calls != 0 || stderr.Len() != 0 {
+		t.Fatalf("exit=%d direct=%d proposal=%d stderr=%q", exitCode, publisher.calls, publisher.proposalCalls, stderr.String())
+	}
+	for _, want := range []string{"created", "#42", "https://github.com/nikollson/skills/pull/42"} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Errorf("stdout = %q, want %q", stdout.String(), want)
+		}
+	}
+}
+
 func TestRunPublishRejectsInvalidArgumentsBeforeService(t *testing.T) {
 	tests := [][]string{
 		{"publish"},
@@ -586,6 +623,7 @@ func TestRunPublishRejectsInvalidArgumentsBeforeService(t *testing.T) {
 		{"publish", "owner/repo", "sample", "--tag", "v1"},
 		{"publish", "owner/repo", "sample", "--branch", "main", "extra"},
 		{"publish", "owner/repo", "sample", "--branch", "main", "--branch", "next"},
+		{"publish", "owner/repo", "sample", "--branch", "main", "--pr", "--pr"},
 		{"publish", "owner/repo", "sample", "--branch=main"},
 		{"publish", "owner", "sample", "--branch", "main"},
 	}

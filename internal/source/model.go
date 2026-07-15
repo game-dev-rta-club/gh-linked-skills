@@ -2,10 +2,13 @@ package source
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
 )
+
+var ErrSkillNotFound = errors.New("skill path not found")
 
 type RefKind string
 
