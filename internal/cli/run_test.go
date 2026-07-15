@@ -44,9 +44,10 @@ type fakePull struct {
 }
 
 type fakePush struct {
-	result pushapp.Result
-	err    error
-	calls  int
+	result        pushapp.Result
+	err           error
+	calls         int
+	proposalCalls int
 }
 
 type fakePublish struct {
@@ -135,6 +136,11 @@ func (f *fakeManagedInstaller) Install(
 
 func (f *fakePush) Push(context.Context, string, string) (pushapp.Result, error) {
 	f.calls++
+	return f.result, f.err
+}
+
+func (f *fakePush) PushProposal(context.Context, string, string) (pushapp.Result, error) {
+	f.proposalCalls++
 	return f.result, f.err
 }
 
@@ -426,6 +432,46 @@ func TestRunPushReportsPushedTree(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), "new-tree") {
 		t.Fatalf("stdout = %q, want pushed tree", stdout.String())
+	}
+}
+
+func TestRunPushProposalReportsPullRequest(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	pusher := &fakePush{result: pushapp.Result{
+		Path: ".agents/skills/sample", TreeSHA: "new-tree", Proposed: true,
+		ProposalState: "created", ProposalNumber: 42,
+		ProposalURL: "https://github.com/owner/repo/pull/42",
+	}}
+
+	exitCode := RunWithDependencies(
+		context.Background(), []string{"push", "sample", "--pr"}, &stdout, &stderr,
+		Dependencies{Preflight: fakePreflight{}, Root: fakeRoot{root: "/repo"}, Push: pusher},
+	)
+
+	if exitCode != 0 || pusher.proposalCalls != 1 || pusher.calls != 0 || stderr.Len() != 0 {
+		t.Fatalf("exit=%d direct=%d proposal=%d stderr=%q", exitCode, pusher.calls, pusher.proposalCalls, stderr.String())
+	}
+	for _, want := range []string{"created", "#42", "https://github.com/owner/repo/pull/42"} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Errorf("stdout = %q, want %q", stdout.String(), want)
+		}
+	}
+}
+
+func TestRunPushRejectsInvalidFlags(t *testing.T) {
+	for _, args := range [][]string{
+		{"push"}, {"push", "sample", "extra"}, {"push", "sample", "--pr", "--pr"}, {"push", "--unknown", "sample"},
+	} {
+		var stdout bytes.Buffer
+		var stderr bytes.Buffer
+		pusher := &fakePush{}
+
+		exitCode := RunWithDependencies(context.Background(), args, &stdout, &stderr, Dependencies{Push: pusher})
+
+		if exitCode != 2 || pusher.calls != 0 || pusher.proposalCalls != 0 {
+			t.Errorf("args=%q exit=%d direct=%d proposal=%d", args, exitCode, pusher.calls, pusher.proposalCalls)
+		}
 	}
 }
 

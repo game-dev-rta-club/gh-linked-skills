@@ -256,6 +256,34 @@ func TestServiceRefusesMultipleActiveProposalsForSameSkill(t *testing.T) {
 	}
 }
 
+func TestFindActiveReturnsToolOwnedProposal(t *testing.T) {
+	pull := openPull(t, 'a', 'b', 'c')
+	remote := &fakeRemote{open: []PullRequest{pull}}
+
+	found, err := NewService(remote, &fakeGit{}).FindActive(
+		context.Background(), source.Repository{Owner: "owner", Name: "repo"},
+		"main", "sample", "skills/sample",
+	)
+
+	if err != nil || found == nil || found.Number != pull.Number {
+		t.Fatalf("FindActive() = %#v, %v", found, err)
+	}
+}
+
+func TestFindActiveIgnoresUnrelatedPullRequests(t *testing.T) {
+	pull := openPull(t, 'a', 'b', 'c')
+	pull.HeadRef = "feature/unrelated"
+
+	found, err := NewService(&fakeRemote{open: []PullRequest{pull}}, &fakeGit{}).FindActive(
+		context.Background(), source.Repository{Owner: "owner", Name: "repo"},
+		"main", "sample", "skills/sample",
+	)
+
+	if err != nil || found != nil {
+		t.Fatalf("FindActive() = %#v, %v; want nil", found, err)
+	}
+}
+
 func TestMatchingMergedPullRequiresSameRepositoryAndBase(t *testing.T) {
 	local := snapshotWithTree('b')
 	request := proposalRequest(local, strings.Repeat("a", 40))

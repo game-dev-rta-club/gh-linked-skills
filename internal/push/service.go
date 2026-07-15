@@ -10,6 +10,7 @@ import (
 
 	"github.com/game-dev-rta-club/gh-skill-linker/internal/gitcli"
 	"github.com/game-dev-rta-club/gh-skill-linker/internal/manifest"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/proposal"
 	"github.com/game-dev-rta-club/gh-skill-linker/internal/skill"
 	"github.com/game-dev-rta-club/gh-skill-linker/internal/source"
 	"github.com/game-dev-rta-club/gh-skill-linker/internal/workspace"
@@ -50,19 +51,33 @@ type Pusher interface {
 	) (gitcli.PushResult, error)
 }
 
+type ProposalManager interface {
+	FindActive(
+		ctx context.Context,
+		repository source.Repository,
+		baseBranch, skillName, sourcePath string,
+	) (*proposal.PullRequest, error)
+	Propose(ctx context.Context, request proposal.Request) (proposal.Result, error)
+}
+
 type Service struct {
 	registry  Registry
 	local     LocalReader
 	remote    Remote
 	inventory Inventory
 	pusher    Pusher
+	proposals ProposalManager
 }
 
 type Result struct {
-	SkillName string
-	Path      string
-	TreeSHA   string
-	Pushed    bool
+	SkillName      string
+	Path           string
+	TreeSHA        string
+	Pushed         bool
+	Proposed       bool
+	ProposalState  string
+	ProposalNumber int
+	ProposalURL    string
 }
 
 func NewService(
@@ -71,14 +86,23 @@ func NewService(
 	remote Remote,
 	inventory Inventory,
 	pusher Pusher,
+	proposals ProposalManager,
 ) *Service {
 	return &Service{
 		registry: registry, local: local, remote: remote,
-		inventory: inventory, pusher: pusher,
+		inventory: inventory, pusher: pusher, proposals: proposals,
 	}
 }
 
 func (s *Service) Push(ctx context.Context, projectRoot, selector string) (Result, error) {
+	return s.push(ctx, projectRoot, selector, false)
+}
+
+func (s *Service) PushProposal(ctx context.Context, projectRoot, selector string) (Result, error) {
+	return s.push(ctx, projectRoot, selector, true)
+}
+
+func (s *Service) push(ctx context.Context, projectRoot, selector string, pullRequest bool) (Result, error) {
 	installed, err := s.registry.ListProject(ctx, projectRoot)
 	if err != nil {
 		return Result{}, err
@@ -139,6 +163,29 @@ func (s *Service) Push(ctx context.Context, projectRoot, selector string) (Resul
 	}
 
 	snapshot := sourceSnapshot(local)
+	snapshot.TreeSHA, err = workspace.TreeSHA(snapshot.Files, snapshot.Executable)
+	if err != nil {
+		return Result{}, fmt.Errorf("hash local skill: %w", err)
+	}
+	if pullRequest {
+		proposed, proposeErr := s.proposals.Propose(ctx, proposal.Request{
+			Repository: repository, RepositoryURL: entry.Repository, BaseBranch: ref.Name,
+			SkillName: entry.Name, SourcePath: entry.SourcePath, BaseTreeSHA: current.TreeSHA,
+			Snapshot: snapshot, Title: "chore(skill): sync " + entry.Name,
+			Message: "chore(skill): sync " + entry.Name,
+		})
+		if proposeErr != nil {
+			return Result{}, proposeErr
+		}
+		return proposalResult(entry.Name, relative, snapshot.TreeSHA, proposed), nil
+	}
+	active, err := s.proposals.FindActive(ctx, repository, ref.Name, entry.Name, entry.SourcePath)
+	if err != nil {
+		return Result{}, fmt.Errorf("push eligibility unknown: proposal_unknown: %w", err)
+	}
+	if active != nil {
+		return Result{}, fmt.Errorf("push ineligible: open_proposal: close or merge %s, or rerun with --pr", active.URL)
+	}
 	pushResult, err := s.pusher.PushSkill(
 		ctx,
 		entry.Repository,
@@ -161,6 +208,27 @@ func (s *Service) Push(ctx context.Context, projectRoot, selector string) (Resul
 		}
 	}
 	return result, nil
+}
+
+func proposalResult(name, relative, treeSHA string, result proposal.Result) Result {
+	state := "waiting"
+	switch {
+	case result.Created:
+		state = "created"
+	case result.Updated:
+		state = "updated"
+	case result.Recovered:
+		state = "recovered"
+	case result.Applied:
+		state = "applied"
+	case result.Merged:
+		state = "merged"
+	}
+	return Result{
+		SkillName: name, Path: relative, TreeSHA: treeSHA,
+		Proposed: !result.Applied && !result.Merged, ProposalState: state,
+		ProposalNumber: result.PullRequest.Number, ProposalURL: result.PullRequest.URL,
+	}
 }
 
 func (s *Service) checkPushFiles(ctx context.Context, root, relative string, local workspace.LocalSkill) error {

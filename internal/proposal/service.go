@@ -61,6 +61,23 @@ func NewService(remote Remote, git Git) *Service {
 	return &Service{remote: remote, git: git}
 }
 
+func (service *Service) FindActive(
+	ctx context.Context,
+	repository source.Repository,
+	baseBranch, skillName, sourcePath string,
+) (*PullRequest, error) {
+	if repository.Owner == "" || repository.Name == "" || baseBranch == "" || skillName == "" || sourcePath == "" {
+		return nil, fmt.Errorf("repository, base branch, and skill identity are required")
+	}
+	pulls, err := service.remote.ListPullRequests(ctx, repository, ListOptions{State: "open", Base: baseBranch})
+	if err != nil {
+		return nil, err
+	}
+	return selectActivePull(pulls, Request{
+		Repository: repository, BaseBranch: baseBranch, SkillName: skillName, SourcePath: sourcePath,
+	}, BranchPrefix(skillName, sourcePath))
+}
+
 func (service *Service) Propose(ctx context.Context, request Request) (Result, error) {
 	if err := validateRequest(request); err != nil {
 		return Result{}, err

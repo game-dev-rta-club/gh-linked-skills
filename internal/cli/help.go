@@ -16,7 +16,7 @@ AVAILABLE COMMANDS
   publish   Publish an unmanaged local skill to a repository
   status    Show project skill synchronization state
   pull      Pull one managed skill from its source branch
-  push      Push one managed skill to its source branch
+  push      Push one managed skill directly or propose it with a pull request
   uninstall Remove one managed skill from the current project
 
 INHERITED FLAGS
@@ -39,6 +39,9 @@ EXAMPLES
   # Synchronize one managed skill
   $ gh skill-linker pull SKILL
   $ gh skill-linker push SKILL
+
+  # Propose local changes without writing directly to the source branch
+  $ gh skill-linker push SKILL --pr
 
   # Remove one managed skill from this project
   $ gh skill-linker uninstall SKILL
@@ -175,13 +178,21 @@ EXAMPLES
 const pushHelp = `Push one managed skill to its recorded repository and branch.
 
 Push requires repository write permission and a remote branch that has not
-changed since the last synchronization. Use status before pushing local changes.
+changed since the last synchronization. Use --pr to create or update one pull
+request for this skill instead of writing directly to the source branch.
+
+Later local changes update the same open pull request. If the source branch
+changed, pull and resolve it first, then rerun push --pr. Direct push is refused
+while a managed pull request remains open.
 
 USAGE
-  gh skill-linker push SKILL
+  gh skill-linker push SKILL [--pr]
 
 ARGUMENTS
   SKILL   Managed skill name or project-relative path
+
+FLAGS
+      --pr   Create or update a pull request
 
 INHERITED FLAGS
   -h, --help   Show help for command
@@ -189,6 +200,7 @@ INHERITED FLAGS
 EXAMPLES
   $ gh skill-linker status
   $ gh skill-linker push brainstorming
+  $ gh skill-linker push brainstorming --pr
 `
 
 const uninstallHelp = `Remove one managed Agent Skill from the current project.
