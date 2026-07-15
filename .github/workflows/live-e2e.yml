@@ -1,0 +1,128 @@
+name: Live E2E
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * 1"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: live-e2e-${{ github.run_id }}-${{ github.run_attempt }}
+  cancel-in-progress: false
+
+jobs:
+  owned-branch:
+    if: github.repository == 'game-dev-rta-club/gh-linked-skills'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BRANCH: test/e2e/${{ github.run_id }}/${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Build extension
+        run: go build -o "$RUNNER_TEMP/gh-linked-skills" .
+
+      - name: Create owned test branch
+        run: |
+          test "$GITHUB_REPOSITORY" = "game-dev-rta-club/gh-linked-skills"
+          case "$BRANCH" in test/e2e/*) ;; *) exit 1 ;; esac
+          if git ls-remote --heads origin "refs/heads/$BRANCH" | grep --quiet .; then
+            echo "branch already exists: $BRANCH" >&2
+            exit 1
+          fi
+          git push origin "HEAD:refs/heads/$BRANCH"
+          printf '%s\n' "$BRANCH" > "$RUNNER_TEMP/live-branch.txt"
+
+      - name: Exercise status, push, pull, and conflict
+        run: |
+          project="$RUNNER_TEMP/project"
+          remote_work="$RUNNER_TEMP/remote-work"
+          binary="$RUNNER_TEMP/gh-linked-skills"
+
+          gh auth setup-git
+          mkdir -p "$project"
+          git -C "$project" init -b main
+          git -C "$project" config user.name gh-linked-skills-e2e
+          git -C "$project" config user.email gh-linked-skills@users.noreply.github.com
+          cd "$project"
+          "$binary" install game-dev-rta-club/gh-linked-skills --branch "$BRANCH" \
+            | tee "$RUNNER_TEMP/discovered-skills.txt"
+          grep --fixed-strings --quiet 'e2e' "$RUNNER_TEMP/discovered-skills.txt"
+          grep --fixed-strings --quiet 'e2e-secondary' "$RUNNER_TEMP/discovered-skills.txt"
+          "$binary" install game-dev-rta-club/gh-linked-skills --all --branch "$BRANCH"
+          git add .agents/skills/e2e .agents/skills/e2e-secondary .gh-linked-skills.json
+          git commit -m "test: track installed fixture"
+
+          "$binary" status --json | tee "$RUNNER_TEMP/status-clean.json"
+          jq --exit-status 'length == 2 and all(.[]; .state == "clean" and .pushEligibility == "eligible")' \
+            "$RUNNER_TEMP/status-clean.json"
+
+          perl -pi -e 's/^This file is intentionally small.*$/Live push from GitHub Actions./' \
+            "$project/.agents/skills/e2e/SKILL.md"
+          "$binary" status --json | tee "$RUNNER_TEMP/status-push.json"
+          jq --exit-status '.[0].state == "push"' "$RUNNER_TEMP/status-push.json"
+          "$binary" push e2e
+          "$binary" status --json | tee "$RUNNER_TEMP/status-after-push.json"
+          jq --exit-status '.[0].state == "clean"' "$RUNNER_TEMP/status-after-push.json"
+
+          git clone --branch "$BRANCH" --single-branch \
+            "https://github.com/$GITHUB_REPOSITORY.git" "$remote_work"
+          git -C "$remote_work" config user.name gh-linked-skills-e2e
+          git -C "$remote_work" config user.email gh-linked-skills@users.noreply.github.com
+          perl -pi -e 's/^Live push from GitHub Actions\.$/Remote pull from GitHub Actions./' \
+            "$remote_work/test-fixtures/skills/e2e/SKILL.md"
+          git -C "$remote_work" add test-fixtures/skills/e2e/SKILL.md
+          git -C "$remote_work" commit -m "test: create remote pull"
+          git -C "$remote_work" push origin "HEAD:refs/heads/$BRANCH"
+
+          "$binary" status --json | tee "$RUNNER_TEMP/status-pull.json"
+          jq --exit-status '.[0].state == "pull"' "$RUNNER_TEMP/status-pull.json"
+          "$binary" pull e2e
+          "$binary" status --json | tee "$RUNNER_TEMP/status-after-pull.json"
+          jq --exit-status '.[0].state == "clean"' "$RUNNER_TEMP/status-after-pull.json"
+
+          perl -pi -e 's/^Remote pull from GitHub Actions\.$/Local conflict from GitHub Actions./' \
+            "$project/.agents/skills/e2e/SKILL.md"
+          git -C "$remote_work" pull --ff-only
+          perl -pi -e 's/^Remote pull from GitHub Actions\.$/Remote conflict from GitHub Actions./' \
+            "$remote_work/test-fixtures/skills/e2e/SKILL.md"
+          git -C "$remote_work" add test-fixtures/skills/e2e/SKILL.md
+          git -C "$remote_work" commit -m "test: create remote conflict"
+          git -C "$remote_work" push origin "HEAD:refs/heads/$BRANCH"
+
+          if "$binary" pull e2e; then
+            echo "conflicting pull unexpectedly succeeded" >&2
+            exit 1
+          fi
+          grep --fixed-strings --quiet '<<<<<<< gh-linked-skills:local' \
+            "$project/.agents/skills/e2e/SKILL.md"
+          "$binary" status --json | tee "$RUNNER_TEMP/status-conflict.json"
+          jq --exit-status '.[0].state == "conflict"' "$RUNNER_TEMP/status-conflict.json"
+
+      - name: Record branch evidence
+        if: always()
+        run: |
+          printf 'branch=%s\n' "$BRANCH" >> "$GITHUB_STEP_SUMMARY"
+          git ls-remote --heads origin "refs/heads/$BRANCH" >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Delete owned test branch
+        if: always()
+        run: |
+          case "$BRANCH" in test/e2e/*) ;; *) exit 1 ;; esac
+          git push origin --delete "$BRANCH" || true
+
+      - name: Verify cleanup
+        if: always()
+        run: |
+          if git ls-remote --heads origin "refs/heads/$BRANCH" | grep --quiet .; then
+            echo "live branch remains after cleanup: $BRANCH" >&2
+            exit 1
+          fi
