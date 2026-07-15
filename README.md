@@ -27,9 +27,9 @@ The install prints the destination of each skill. A successful status check
 looks like this:
 
 ```text
-SKILL                PATH                                STATE  PULL                           PUSH
-rubber-duck-caller   .agents/skills/rubber-duck-caller   clean  ineligible (fixed_source_ref)  ineligible (source_ref_read_only)
-rubber-duck-partner  .agents/skills/rubber-duck-partner  clean  ineligible (fixed_source_ref)  ineligible (source_ref_read_only)
+SKILL                PATH                                STATE  PROPOSAL  PULL                           PUSH
+rubber-duck-caller   .agents/skills/rubber-duck-caller   clean  -         ineligible (fixed_source_ref)  ineligible (source_ref_read_only)
+rubber-duck-partner  .agents/skills/rubber-duck-partner  clean  -         ineligible (fixed_source_ref)  ineligible (source_ref_read_only)
 ```
 
 This is expected for a tag-backed install: the files are clean, while pull and

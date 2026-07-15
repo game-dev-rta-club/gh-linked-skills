@@ -21,7 +21,7 @@ Node.js, Python, and a shell interpreter are not required.
 ```text
 main / cli
   -> install / publish / status / pull / push / uninstall
-    -> source / skill / syncstate / merge
+    -> source / skill / syncstate / merge / proposal
     -> manifest / workspace / githubapi / gitcli / command
 ```
 
@@ -30,6 +30,8 @@ fakes.
 
 `status`, `pull`, and `push` read the manifest and compare source, baseline, and
 local state. `install` registers the source snapshot as the initial baseline.
+`push --pr` and `publish --pr` share the proposal service; GitHub and hidden PR
+metadata hold proposal identity while the manifest remains unchanged.
 
 Each synchronization command changes only the selected skill.
 

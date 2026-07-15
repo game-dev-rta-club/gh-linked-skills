@@ -108,8 +108,9 @@ gh skill-linker status
 | `push` | The local skill changed | Review, then `push` |
 | `conflict` | Both sides changed or markers remain | Resolve the conflict |
 
-The `PULL` and `PUSH` columns separately show whether each operation is
-eligible and, when it is not, the reason.
+`PROPOSAL` reports a managed pull request independently from file state. `PULL`
+and `PUSH` show whether each direct operation is eligible and, when it is not,
+the reason.
 
 ## Collaborate on a branch
 
@@ -134,6 +135,17 @@ Push uses a normal Git commit, never a force push. It stops if the remote skill
 changed since the last synchronization, so you can pull and review first. The
 extension does not commit or push the parent project.
 
+To request review instead of writing directly to the source branch:
+
+```sh
+gh skill-linker push SKILL --pr
+```
+
+Later local changes update the same open pull request. If the source branch
+changes, pull and resolve it first, then rerun `push --pr`. The extension never
+rebases or force-pushes the proposal branch. Direct push is disabled until the
+managed pull request is merged or closed.
+
 ## Publish a new local skill
 
 Create `.agents/skills/<name>/SKILL.md`, then publish it to an existing GitHub
@@ -147,6 +159,15 @@ git commit -m "chore: track published skill"
 
 The remote path is `skills/<name>`. Existing different content is not
 overwritten, and the extension does not create the repository for you.
+
+Use `--pr` to propose the new skill without registering it yet:
+
+```sh
+gh skill-linker publish OWNER/REPO SKILL --branch BRANCH --pr
+```
+
+After merge, rerun the same command to add the source record. Local changes
+made during review remain available for a later `push --pr`.
 
 ## Uninstall a skill
 
