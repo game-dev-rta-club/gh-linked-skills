@@ -20,7 +20,7 @@ Node.js, Python, and a shell interpreter are not required.
 
 ```text
 main / cli
-  -> install / status / pull / push
+  -> install / publish / status / pull / push / uninstall
     -> source / skill / syncstate / merge
     -> manifest / workspace / githubapi / gitcli / command
 ```
