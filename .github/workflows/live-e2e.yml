@@ -62,7 +62,9 @@ jobs:
           git commit -m "test: track installed fixture"
 
           "$binary" status --json | tee "$RUNNER_TEMP/status-clean.json"
-          jq --exit-status 'length == 2 and all(.[]; .state == "clean" and .pushEligibility == "eligible")' \
+          # GitHub App tokens have no user viewerPermission. In that case the
+          # push command below proves writability with its dry-run fallback.
+          jq --exit-status 'length == 2 and all(.[]; .state == "clean" and (.pushEligibility == "eligible" or (.pushEligibility == "unknown" and .pushReason == "permission_unknown")))' \
             "$RUNNER_TEMP/status-clean.json"
 
           perl -pi -e 's/^This file is intentionally small.*$/Live push from GitHub Actions./' \
