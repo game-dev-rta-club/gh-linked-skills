@@ -1,16 +1,16 @@
-# gh-linked-skills — Versioned Agent Skills for GitHub
+# Skill Linker — Link Agent Skills to versioned GitHub sources
 
-[![CI](https://github.com/game-dev-rta-club/gh-linked-skills/actions/workflows/ci.yml/badge.svg)](https://github.com/game-dev-rta-club/gh-linked-skills/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/game-dev-rta-club/gh-linked-skills)](https://github.com/game-dev-rta-club/gh-linked-skills/releases/latest)
+[![CI](https://github.com/game-dev-rta-club/gh-skill-linker/actions/workflows/ci.yml/badge.svg)](https://github.com/game-dev-rta-club/gh-skill-linker/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/game-dev-rta-club/gh-skill-linker)](https://github.com/game-dev-rta-club/gh-skill-linker/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Install, pin, pull, and publish project-local Agent Skills without hiding their
-source or silently overwriting local work.
+Link project-local Agent Skills to explicit GitHub sources without hiding their
+files or silently overwriting local work.
 
-`gh-linked-skills` is a GitHub CLI extension for teams that want skill files in
-the project they affect. It records the source repository, path, branch or tag,
-and last synchronized revision so collaborators can review and reproduce the
-same setup.
+`gh-skill-linker` is a GitHub CLI extension, not a skill collection. It copies
+skill files into the project they affect and records each source repository,
+path, branch or tag, and last synchronized revision. Collaborators can review
+the files and reproduce the same setup without relying on hidden symlinks.
 
 ## Quick start
 
@@ -18,9 +18,9 @@ Requirements: macOS or Linux, an authenticated
 [GitHub CLI](https://cli.github.com/), system Git, and a Git project.
 
 ```sh
-gh extension install game-dev-rta-club/gh-linked-skills
-gh linked-skills install game-dev-rta-club/agent-skills --all --tag v1.0.0
-gh linked-skills status
+gh extension install game-dev-rta-club/gh-skill-linker
+gh skill-linker install game-dev-rta-club/agent-skills --all --tag v1.0.0
+gh skill-linker status
 ```
 
 The install prints the destination of each skill. A successful status check
@@ -38,14 +38,14 @@ push are disabled to preserve the fixed snapshot.
 Commit the installed files and their source record together:
 
 ```sh
-git add .agents/skills .gh-linked-skills.json
+git add .agents/skills .gh-skill-linker.json
 git commit -m "chore: install agent skills"
 ```
 
 ```text
 your-project/
 ├── .agents/skills/<skill>/...   # files the agent reads
-└── .gh-linked-skills.json       # source ref and synchronized revision
+└── .gh-skill-linker.json       # source ref and synchronized revision
 ```
 
 The extension does not commit the parent project for you.
@@ -62,11 +62,11 @@ to exchange changes with the source repository.
 
 ```sh
 # Install every discovered skill at a fixed release.
-gh linked-skills install OWNER/REPO --all --tag TAG
+gh skill-linker install OWNER/REPO --all --tag TAG
 
 # List available skills on a branch, then install one by name or path.
-gh linked-skills install OWNER/REPO --branch BRANCH
-gh linked-skills install OWNER/REPO SKILL --branch BRANCH
+gh skill-linker install OWNER/REPO --branch BRANCH
+gh skill-linker install OWNER/REPO SKILL --branch BRANCH
 ```
 
 ## What it protects
@@ -84,24 +84,24 @@ agent and should be treated as trusted code.
 
 | Goal | Command |
 | --- | --- |
-| Discover skills | `gh linked-skills install OWNER/REPO --branch BRANCH` |
-| Install one skill | `gh linked-skills install OWNER/REPO SKILL --branch BRANCH` |
-| Install a fixed release | `gh linked-skills install OWNER/REPO SKILL --tag TAG` |
-| Check local and source changes | `gh linked-skills status` |
-| Bring source changes into the project | `gh linked-skills pull SKILL` |
-| Send a local skill change to its source branch | `gh linked-skills push SKILL` |
-| Publish a new local skill | `gh linked-skills publish OWNER/REPO SKILL --branch BRANCH` |
-| Stop managing a skill | `gh linked-skills uninstall SKILL` |
+| Discover skills | `gh skill-linker install OWNER/REPO --branch BRANCH` |
+| Install one skill | `gh skill-linker install OWNER/REPO SKILL --branch BRANCH` |
+| Install a fixed release | `gh skill-linker install OWNER/REPO SKILL --tag TAG` |
+| Check local and source changes | `gh skill-linker status` |
+| Bring source changes into the project | `gh skill-linker pull SKILL` |
+| Send a local skill change to its source branch | `gh skill-linker push SKILL` |
+| Publish a new local skill | `gh skill-linker publish OWNER/REPO SKILL --branch BRANCH` |
+| Stop managing a skill | `gh skill-linker uninstall SKILL` |
 
-Run `gh linked-skills <command> --help` for complete arguments and examples.
+Run `gh skill-linker <command> --help` for complete arguments and examples.
 For installation, branch collaboration, tag upgrades, conflicts, and removal,
 see the [user guide](docs/user-guide.md).
 
 ## Security and release integrity
 
-Use v0.5.3 or later. Releases from v0.5.3 onward are immutable and include
-SHA-256 checksums and signed GitHub build provenance. Earlier releases remain
-available only as historical records.
+Use v0.6.0 or later. Skill Linker releases are immutable and include SHA-256
+checksums and signed GitHub build provenance. Releases before v0.6.0 use the
+former extension name and remain available only as historical records.
 
 See [Verifying release artifacts](docs/release-verification.md) for the exact
 checksum and attestation commands. Read the
@@ -120,8 +120,12 @@ automating write operations. Report vulnerabilities privately as described in
 Upgrade an existing installation with:
 
 ```sh
-gh extension upgrade game-dev-rta-club/gh-linked-skills
+gh extension upgrade skill-linker
 ```
+
+If you installed this extension before v0.6.0, follow the
+[rename migration guide](docs/migration-to-skill-linker.md) instead of
+upgrading it in place.
 
 ## Documentation
 
@@ -133,7 +137,7 @@ The detailed design specifications are retained separately for contributors.
 This project is pre-1.0 and maintained by volunteers. Response times, releases,
 fixes, and long-term maintenance are not guaranteed. There is no support SLA.
 
-Use [GitHub Issues](https://github.com/game-dev-rta-club/gh-linked-skills/issues)
+Use [GitHub Issues](https://github.com/game-dev-rta-club/gh-skill-linker/issues)
 for reproducible bugs and proposed improvements. General contact is available
 through the [Game Dev RTA Club Google Group](https://groups.google.com/g/game-dev-rta-club).
 

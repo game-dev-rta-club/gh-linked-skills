@@ -6,7 +6,7 @@ status: implemented
 
 # Boundaries
 
-Linked Skills synchronizes a local skill inside a project with a source inside
+Skill Linker synchronizes a local skill inside a project with a source inside
 a GitHub repository. The project is the only management scope.
 
 The product does not provide:

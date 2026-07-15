@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/source"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/source"
 )
 
 var ErrRemoteChanged = errors.New("remote skill changed")
@@ -52,7 +52,7 @@ func (c *Client) PushSkill(
 		}
 	}
 
-	directory, err := os.MkdirTemp("", "gh-linked-skills-push-")
+	directory, err := os.MkdirTemp("", "gh-skill-linker-push-")
 	if err != nil {
 		return PushResult{}, fmt.Errorf("create push directory: %w", err)
 	}
@@ -116,8 +116,8 @@ func (c *Client) PushSkill(
 	if _, stderr, err := c.runner.Run(
 		ctx,
 		"-C", checkout,
-		"-c", "user.name=gh-linked-skills",
-		"-c", "user.email=gh-linked-skills@users.noreply.github.com",
+		"-c", "user.name=gh-skill-linker",
+		"-c", "user.email=gh-skill-linker@users.noreply.github.com",
 		"commit", "-m", message, "--", cleanSkillPath,
 	); err != nil {
 		return PushResult{}, fmt.Errorf("commit source skill: %s: %w", commandDetail(stderr), err)

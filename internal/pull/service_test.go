@@ -10,11 +10,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/command"
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/gitcli"
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/manifest"
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/source"
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/workspace"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/command"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/gitcli"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/manifest"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/source"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/workspace"
 )
 
 const (
@@ -198,7 +198,7 @@ func TestPullWritesMarkersAndAdvancesBaselineOnConflict(t *testing.T) {
 		t.Fatalf("Pull() conflict paths=%v, want %v", result.ConflictPaths, wantConflictPaths)
 	}
 	content, readErr := os.ReadFile(filepath.Join(target, "SKILL.md"))
-	if readErr != nil || !strings.Contains(string(content), "<<<<<<< gh-linked-skills:local") {
+	if readErr != nil || !strings.Contains(string(content), "<<<<<<< gh-skill-linker:local") {
 		t.Fatalf("conflict marker missing: %q err=%v", content, readErr)
 	}
 	updated, _ := (manifest.Store{}).Read(root)

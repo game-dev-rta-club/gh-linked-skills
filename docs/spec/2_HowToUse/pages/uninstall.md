@@ -10,7 +10,7 @@ Remove a managed skill from the current project without changing its source
 repository.
 
 ```bash
-gh linked-skills uninstall SKILL
+gh skill-linker uninstall SKILL
 ```
 
 `SKILL` may be a skill name or `.agents/skills/<name>`. When local content
@@ -21,7 +21,7 @@ To prevent accidental deletion, the command rejects local changes. Use the
 force option only when you explicitly want to discard them.
 
 ```bash
-gh linked-skills uninstall SKILL --force
+gh skill-linker uninstall SKILL --force
 ```
 
 If the skill directory is already missing, the command removes the remaining

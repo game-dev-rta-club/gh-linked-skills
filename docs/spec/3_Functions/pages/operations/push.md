@@ -45,7 +45,7 @@ subtree.
 Write files with `0644/0755` and run `git add -A -- <sourcePath>`. Do not commit
 when there is no difference.
 
-- author: `gh-linked-skills <gh-linked-skills@users.noreply.github.com>`
+- author: `gh-skill-linker <gh-skill-linker@users.noreply.github.com>`
 - message: `chore(skill): sync <skill-name>`
 - refspec: `HEAD:refs/heads/<branch>`
 

@@ -30,9 +30,9 @@ without changing the workspace. Merge text with:
 
 ```bash
 git merge-file --diff3 \
-  -L gh-linked-skills:local \
-  -L gh-linked-skills:base:<base-tree-sha> \
-  -L gh-linked-skills:remote:<remote-tree-sha>
+  -L gh-skill-linker:local \
+  -L gh-skill-linker:base:<base-tree-sha> \
+  -L gh-skill-linker:remote:<remote-tree-sha>
 ```
 
 Any overlap leaves conflict markers, including frontmatter overlaps. Input uses
@@ -54,9 +54,9 @@ A mode change combined with deletion is an error.
 
 These substrings identify an unresolved conflict:
 
-- `<<<<<<< gh-linked-skills:local`
-- `||||||| gh-linked-skills:base:`
-- `>>>>>>> gh-linked-skills:remote:`
+- `<<<<<<< gh-skill-linker:local`
+- `||||||| gh-skill-linker:base:`
+- `>>>>>>> gh-skill-linker:remote:`
 
 While markers remain, state is `conflict` and pull/push reason is
 `unresolved_conflict`. There is no separate state file. After resolution,

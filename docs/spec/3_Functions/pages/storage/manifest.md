@@ -10,7 +10,7 @@ Persist source identity and the last synchronization point at the project root.
 
 ## MAN-001 Location
 
-`.gh-linked-skills.json` at the project root is the only registry. When absent,
+`.gh-skill-linker.json` at the project root is the only registry. When absent,
 it represents an empty schema-v2 document. It must be a regular file. Reject
 symlinks, unknown fields, multiple JSON values, trailing data, and invalid
 schemas.

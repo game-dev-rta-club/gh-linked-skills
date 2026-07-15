@@ -28,9 +28,9 @@ func (s Snapshot) Equal(other Snapshot) bool {
 
 func (s Snapshot) HasGeneratedConflictMarker() bool {
 	markers := [][]byte{
-		[]byte("<<<<<<< gh-linked-skills:local"),
-		[]byte("||||||| gh-linked-skills:base:"),
-		[]byte(">>>>>>> gh-linked-skills:remote:"),
+		[]byte("<<<<<<< gh-skill-linker:local"),
+		[]byte("||||||| gh-skill-linker:base:"),
+		[]byte(">>>>>>> gh-skill-linker:remote:"),
 	}
 	for _, content := range s {
 		for _, marker := range markers {

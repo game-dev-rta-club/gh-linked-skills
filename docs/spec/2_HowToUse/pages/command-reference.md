@@ -23,11 +23,11 @@ of truth for its command syntax, behavior, and output.
 After installing the extension, the CLI help covers the basic operations.
 
 ```bash
-gh linked-skills --help
-gh linked-skills help install
-gh linked-skills install --help
-gh linked-skills publish --help
-gh linked-skills uninstall --help
+gh skill-linker --help
+gh skill-linker help install
+gh skill-linker install --help
+gh skill-linker publish --help
+gh skill-linker uninstall --help
 ```
 
 Root help shows the purpose, command list, and basic examples. Command help

@@ -30,7 +30,7 @@ jobs:
           draft_release: true
       - name: Generate checksums
         working-directory: dist
-        run: sha256sum gh-linked-skills_* > SHA256SUMS
+        run: sha256sum gh-skill-linker_* > SHA256SUMS
       - name: Upload checksums
         env:
           GH_TOKEN: ${{ github.token }}

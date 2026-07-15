@@ -9,7 +9,7 @@ status: implemented
 Return an improved local skill to the source branch selected during install.
 
 ```bash
-gh linked-skills push <skill-name|project-relative-path>
+gh skill-linker push <skill-name|project-relative-path>
 ```
 
 The repository must be writable, the source skill tree must be unchanged, the

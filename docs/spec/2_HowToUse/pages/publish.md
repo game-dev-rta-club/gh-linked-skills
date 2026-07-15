@@ -10,7 +10,7 @@ Publish an unmanaged skill created in the current project to an existing
 GitHub repository, then begin managing it.
 
 ```bash
-gh linked-skills publish OWNER/REPO SKILL --branch BRANCH
+gh skill-linker publish OWNER/REPO SKILL --branch BRANCH
 ```
 
 Requirements:
@@ -33,6 +33,6 @@ An already managed skill cannot be published. Use `push` to update the same
 source. The command does not migrate or copy skills to another repository, and
 it does not create repositories.
 
-After success, commit `.gh-linked-skills.json` in the parent project.
+After success, commit `.gh-skill-linker.json` in the parent project.
 
 Implementation: [Publish operation](../../3_Functions/pages/operations/publish.md)

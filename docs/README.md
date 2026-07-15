@@ -1,12 +1,13 @@
-# gh-linked-skills documentation
+# gh-skill-linker documentation
 
 Choose the page that matches what you want to do.
 
 ## Use the extension
 
 - [Install and synchronize Agent Skills](user-guide.md)
+- [Migrate from the former extension name](migration-to-skill-linker.md)
 - [Verify checksums and build provenance](release-verification.md)
-- Run `gh linked-skills <command> --help` for the canonical CLI syntax and
+- Run `gh skill-linker <command> --help` for the canonical CLI syntax and
   examples shipped with your installed version
 
 ## Evaluate safety and operation

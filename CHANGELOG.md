@@ -4,6 +4,17 @@ Notable user-facing changes are recorded in this file.
 
 ## Unreleased
 
+## 0.6.0 - 2026-07-15
+
+- Renamed the extension and command from `gh-linked-skills` / `gh linked-skills`
+  to `gh-skill-linker` / `gh skill-linker`.
+- Renamed the project management file from `.gh-linked-skills.json` to
+  `.gh-skill-linker.json` without changing its schema.
+- Updated release artifacts, conflict markers, documentation, and GitHub
+  integration metadata to use the Skill Linker identity.
+- Added a [migration guide](docs/migration-to-skill-linker.md) for reinstalling
+  the extension and renaming existing project manifests.
+
 ## 0.5.3 - 2026-07-15
 
 - Assemble all assets and attestations in a draft before publishing the immutable release.

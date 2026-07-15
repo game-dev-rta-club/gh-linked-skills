@@ -18,8 +18,8 @@ the private reporting process in [SECURITY.md](SECURITY.md).
 Requirements: Go 1.26.5 or later, GitHub CLI, and system Git.
 
 ```sh
-git clone https://github.com/game-dev-rta-club/gh-linked-skills.git
-cd gh-linked-skills
+git clone https://github.com/game-dev-rta-club/gh-skill-linker.git
+cd gh-skill-linker
 go mod verify
 go test ./...
 go test -race ./...

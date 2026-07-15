@@ -1,15 +1,15 @@
 ---
-title: Linked Skills idea
+title: Skill Linker idea
 updated: 2026-07-15
 status: implemented
 tags:
   - idea
-  - linked-skills
+  - skill-linker
 ---
 
 # Idea
 
-Linked Skills returns skills improved inside one project to their source so
+Skill Linker returns skills improved inside one project to their source so
 other projects can use those improvements.
 
 The tool does more than distribute skills. It carries lessons learned during

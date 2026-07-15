@@ -15,11 +15,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/source"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/source"
 )
 
 const (
-	FileName             = ".gh-linked-skills.json"
+	FileName             = ".gh-skill-linker.json"
 	CurrentSchemaVersion = 2
 )
 
@@ -200,7 +200,7 @@ func (Store) Write(projectRoot string, document Document) error {
 		return err
 	}
 	projectRoot = filepath.Clean(projectRoot)
-	temporary, err := os.CreateTemp(projectRoot, ".gh-linked-skills-*.tmp")
+	temporary, err := os.CreateTemp(projectRoot, ".gh-skill-linker-*.tmp")
 	if err != nil {
 		return fmt.Errorf("create temporary management file: %w", err)
 	}

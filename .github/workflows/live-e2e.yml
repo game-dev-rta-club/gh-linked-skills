@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   owned-branch:
-    if: github.repository == 'game-dev-rta-club/gh-linked-skills'
+    if: github.repository == 'game-dev-rta-club/gh-skill-linker'
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ github.token }}
@@ -28,11 +28,11 @@ jobs:
           go-version-file: go.mod
 
       - name: Build extension
-        run: go build -o "$RUNNER_TEMP/gh-linked-skills" .
+        run: go build -o "$RUNNER_TEMP/gh-skill-linker" .
 
       - name: Create owned test branch
         run: |
-          test "$GITHUB_REPOSITORY" = "game-dev-rta-club/gh-linked-skills"
+          test "$GITHUB_REPOSITORY" = "game-dev-rta-club/gh-skill-linker"
           case "$BRANCH" in test/e2e/*) ;; *) exit 1 ;; esac
           if git ls-remote --heads origin "refs/heads/$BRANCH" | grep --quiet .; then
             echo "branch already exists: $BRANCH" >&2
@@ -45,20 +45,20 @@ jobs:
         run: |
           project="$RUNNER_TEMP/project"
           remote_work="$RUNNER_TEMP/remote-work"
-          binary="$RUNNER_TEMP/gh-linked-skills"
+          binary="$RUNNER_TEMP/gh-skill-linker"
 
           gh auth setup-git
           mkdir -p "$project"
           git -C "$project" init -b main
-          git -C "$project" config user.name gh-linked-skills-e2e
-          git -C "$project" config user.email gh-linked-skills@users.noreply.github.com
+          git -C "$project" config user.name gh-skill-linker-e2e
+          git -C "$project" config user.email gh-skill-linker@users.noreply.github.com
           cd "$project"
-          "$binary" install game-dev-rta-club/gh-linked-skills --branch "$BRANCH" \
+          "$binary" install game-dev-rta-club/gh-skill-linker --branch "$BRANCH" \
             | tee "$RUNNER_TEMP/discovered-skills.txt"
           grep --fixed-strings --quiet 'e2e' "$RUNNER_TEMP/discovered-skills.txt"
           grep --fixed-strings --quiet 'e2e-secondary' "$RUNNER_TEMP/discovered-skills.txt"
-          "$binary" install game-dev-rta-club/gh-linked-skills --all --branch "$BRANCH"
-          git add .agents/skills/e2e .agents/skills/e2e-secondary .gh-linked-skills.json
+          "$binary" install game-dev-rta-club/gh-skill-linker --all --branch "$BRANCH"
+          git add .agents/skills/e2e .agents/skills/e2e-secondary .gh-skill-linker.json
           git commit -m "test: track installed fixture"
 
           "$binary" status --json | tee "$RUNNER_TEMP/status-clean.json"
@@ -77,8 +77,8 @@ jobs:
 
           git clone --branch "$BRANCH" --single-branch \
             "https://github.com/$GITHUB_REPOSITORY.git" "$remote_work"
-          git -C "$remote_work" config user.name gh-linked-skills-e2e
-          git -C "$remote_work" config user.email gh-linked-skills@users.noreply.github.com
+          git -C "$remote_work" config user.name gh-skill-linker-e2e
+          git -C "$remote_work" config user.email gh-skill-linker@users.noreply.github.com
           perl -pi -e 's/^Live push from GitHub Actions\.$/Remote pull from GitHub Actions./' \
             "$remote_work/test-fixtures/skills/e2e/SKILL.md"
           git -C "$remote_work" add test-fixtures/skills/e2e/SKILL.md
@@ -104,7 +104,7 @@ jobs:
             echo "conflicting pull unexpectedly succeeded" >&2
             exit 1
           fi
-          grep --fixed-strings --quiet '<<<<<<< gh-linked-skills:local' \
+          grep --fixed-strings --quiet '<<<<<<< gh-skill-linker:local' \
             "$project/.agents/skills/e2e/SKILL.md"
           "$binary" status --json | tee "$RUNNER_TEMP/status-conflict.json"
           jq --exit-status '.[0].state == "conflict"' "$RUNNER_TEMP/status-conflict.json"

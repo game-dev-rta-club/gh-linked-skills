@@ -1,7 +1,7 @@
 # User guide
 
-`gh-linked-skills` installs Agent Skills from GitHub into `.agents/skills/` and
-records their source in `.gh-linked-skills.json`. Run it from the Git project
+`gh-skill-linker` installs Agent Skills from GitHub into `.agents/skills/` and
+records their source in `.gh-skill-linker.json`. Run it from the Git project
 that should use the skills.
 
 ## 1. Install the extension
@@ -14,15 +14,18 @@ Requirements:
   variable
 
 ```sh
-gh extension install game-dev-rta-club/gh-linked-skills
-gh linked-skills --help
+gh extension install game-dev-rta-club/gh-skill-linker
+gh skill-linker --help
 ```
 
 Upgrade later with:
 
 ```sh
-gh extension upgrade game-dev-rta-club/gh-linked-skills
+gh extension upgrade skill-linker
 ```
+
+Users of the extension under its former name must follow the
+[rename migration guide](migration-to-skill-linker.md) instead.
 
 ## 2. Choose a source
 
@@ -41,22 +44,22 @@ version range. The source is always explicit.
 List the skills available at a release:
 
 ```sh
-gh linked-skills install OWNER/REPO --tag TAG
+gh skill-linker install OWNER/REPO --tag TAG
 ```
 
 Install one skill by the displayed name or path, or install all discovered
 skills:
 
 ```sh
-gh linked-skills install OWNER/REPO SKILL --tag TAG
-gh linked-skills install OWNER/REPO --all --tag TAG
+gh skill-linker install OWNER/REPO SKILL --tag TAG
+gh skill-linker install OWNER/REPO --all --tag TAG
 ```
 
 To move an existing tag-backed skill to a new tag, name that skill or its exact
 source path. The command stops if local changes would be overwritten.
 
 ```sh
-gh linked-skills install OWNER/REPO SKILL --tag NEW_TAG
+gh skill-linker install OWNER/REPO SKILL --tag NEW_TAG
 ```
 
 Tag upgrades are intentionally one skill at a time; `--all` does not re-pin
@@ -67,14 +70,14 @@ already installed skills.
 List the available skills, then install one:
 
 ```sh
-gh linked-skills install OWNER/REPO --branch BRANCH
-gh linked-skills install OWNER/REPO SKILL --branch BRANCH
+gh skill-linker install OWNER/REPO --branch BRANCH
+gh skill-linker install OWNER/REPO SKILL --branch BRANCH
 ```
 
 Use `--all` to install every discovered skill from the same branch revision:
 
 ```sh
-gh linked-skills install OWNER/REPO --all --branch BRANCH
+gh skill-linker install OWNER/REPO --all --branch BRANCH
 ```
 
 ## 3. Review and commit the result
@@ -83,17 +86,17 @@ An install creates or updates:
 
 ```text
 .agents/skills/<skill>/...
-.gh-linked-skills.json
+.gh-skill-linker.json
 ```
 
 Review both, then commit them to the parent project so collaborators receive
 the skill content and its source record together.
 
 ```sh
-git diff -- .agents/skills .gh-linked-skills.json
-git add .agents/skills .gh-linked-skills.json
+git diff -- .agents/skills .gh-skill-linker.json
+git add .agents/skills .gh-skill-linker.json
 git commit -m "chore: install agent skills"
-gh linked-skills status
+gh skill-linker status
 ```
 
 `STATE` describes the direction of the difference:
@@ -113,7 +116,7 @@ eligible and, when it is not, the reason.
 Bring source changes into a managed skill:
 
 ```sh
-gh linked-skills pull SKILL
+gh skill-linker pull SKILL
 ```
 
 If both sides changed, the command performs a three-way merge. Text conflicts
@@ -123,8 +126,8 @@ conflicts stop without changing the affected file.
 After editing and reviewing a branch-backed skill, send it to the source:
 
 ```sh
-gh linked-skills status
-gh linked-skills push SKILL
+gh skill-linker status
+gh skill-linker push SKILL
 ```
 
 Push uses a normal Git commit, never a force push. It stops if the remote skill
@@ -137,8 +140,8 @@ Create `.agents/skills/<name>/SKILL.md`, then publish it to an existing GitHub
 repository where you have push access:
 
 ```sh
-gh linked-skills publish OWNER/REPO SKILL --branch BRANCH
-git add .gh-linked-skills.json
+gh skill-linker publish OWNER/REPO SKILL --branch BRANCH
+git add .gh-skill-linker.json
 git commit -m "chore: track published skill"
 ```
 
@@ -148,7 +151,7 @@ overwritten, and the extension does not create the repository for you.
 ## Uninstall a skill
 
 ```sh
-gh linked-skills uninstall SKILL
+gh skill-linker uninstall SKILL
 ```
 
 Uninstall removes the local skill and its manifest entry without changing the
@@ -157,7 +160,7 @@ you have reviewed and intentionally decided to discard those changes.
 
 ## Get help
 
-- Run `gh linked-skills <command> --help` for every option and example.
-- Use [GitHub Issues](https://github.com/game-dev-rta-club/gh-linked-skills/issues)
+- Run `gh skill-linker <command> --help` for every option and example.
+- Use [GitHub Issues](https://github.com/game-dev-rta-club/gh-skill-linker/issues)
   for reproducible bugs or proposed improvements.
 - Read the [security policy](../SECURITY.md) before reporting a vulnerability.

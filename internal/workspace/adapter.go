@@ -1,6 +1,6 @@
 package workspace
 
-import "github.com/game-dev-rta-club/gh-linked-skills/internal/source"
+import "github.com/game-dev-rta-club/gh-skill-linker/internal/source"
 
 type Reader struct{}
 

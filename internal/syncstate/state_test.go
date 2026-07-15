@@ -51,8 +51,8 @@ func TestHasGeneratedConflictMarker(t *testing.T) {
 		content []byte
 		want    bool
 	}{
-		{name: "generated", content: []byte("<<<<<<< gh-linked-skills:local\ntext\n"), want: true},
-		{name: "opening removed", content: []byte("||||||| gh-linked-skills:base:abc\ntext\n>>>>>>> gh-linked-skills:remote:def\n"), want: true},
+		{name: "generated", content: []byte("<<<<<<< gh-skill-linker:local\ntext\n"), want: true},
+		{name: "opening removed", content: []byte("||||||| gh-skill-linker:base:abc\ntext\n>>>>>>> gh-skill-linker:remote:def\n"), want: true},
 		{name: "ordinary git marker", content: []byte("<<<<<<< HEAD\ntext\n"), want: false},
 		{name: "plain", content: []byte("text\n"), want: false},
 	}

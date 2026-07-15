@@ -11,7 +11,7 @@ operation is currently available. Only skills registered in the manifest are
 shown.
 
 ```bash
-gh linked-skills status
+gh skill-linker status
 ```
 
 Example:
@@ -62,7 +62,7 @@ even if file content is identical.
 `eligible` confirms preconditions only; it does not guarantee GitHub will
 accept a push.
 
-JSON output: `gh linked-skills status --json`
+JSON output: `gh skill-linker status --json`
 
 See [Resolving conflicts](resolve-conflicts.md) for marker editing.
 

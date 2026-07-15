@@ -1,5 +1,5 @@
 ---
-title: Linked Skills functions
+title: Skill Linker functions
 updated: 2026-07-15
 status: implemented
 ---

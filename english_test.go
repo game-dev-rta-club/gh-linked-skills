@@ -83,3 +83,60 @@ func TestSymlinkTargetIsCheckedWithoutFollowingIt(t *testing.T) {
 		t.Errorf("containsJapaneseText(%q) = false, want true", target)
 	}
 }
+
+func TestCurrentProjectUsesSkillLinkerIdentity(t *testing.T) {
+	output, err := exec.Command("git", "ls-files", "-z").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	allowedLegacyReferences := map[string]bool{
+		"CHANGELOG.md":                      true,
+		"docs/migration-to-skill-linker.md": true,
+		"internal/cli/run_test.go":          true,
+	}
+	legacyIdentifiers := [][]byte{
+		[]byte("gh-" + "linked-skills"),
+		[]byte("gh " + "linked-skills"),
+		[]byte("Linked " + "Skills"),
+	}
+	for _, rawPath := range bytes.Split(output, []byte{0}) {
+		if len(rawPath) == 0 {
+			continue
+		}
+		path := string(rawPath)
+		if allowedLegacyReferences[path] {
+			continue
+		}
+		for _, identifier := range legacyIdentifiers {
+			if bytes.Contains(rawPath, identifier) {
+				t.Errorf("tracked path contains former identity %q: %s", identifier, path)
+			}
+		}
+
+		info, err := os.Lstat(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var content []byte
+		if info.Mode()&os.ModeSymlink != 0 {
+			target, err := os.Readlink(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			content = []byte(target)
+		} else {
+			content, err = os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !utf8.Valid(content) {
+				continue
+			}
+		}
+		for _, identifier := range legacyIdentifiers {
+			if bytes.Contains(content, identifier) {
+				t.Errorf("tracked file contains former identity %q: %s", identifier, path)
+			}
+		}
+	}
+}

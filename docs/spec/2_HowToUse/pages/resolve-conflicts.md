@@ -16,9 +16,9 @@ and current source content into the actual skill file.
 CONFLICT (content): Merge conflict in .agents/skills/sample/SKILL.md
 Pull completed with conflicts; fix them in the working tree.
 After resolving, run:
-  gh linked-skills status
+  gh skill-linker status
 If STATE is push, run:
-  gh linked-skills push sample
+  gh skill-linker push sample
 ```
 
 This follows Git conflict behavior. Exit code `1` does not mean the operation
@@ -28,13 +28,13 @@ manual resolution remains.
 ## Content written to the file
 
 > ```text
-> <<<<<<< gh-linked-skills:local
+> <<<<<<< gh-skill-linker:local
 > title: Text edited locally
-> ||||||| gh-linked-skills:base:<tree-sha>
+> ||||||| gh-skill-linker:base:<tree-sha>
 > title: Text from the last synchronization
 > =======
 > title: Text updated at the source
-> >>>>>>> gh-linked-skills:remote:<tree-sha>
+> >>>>>>> gh-skill-linker:remote:<tree-sha>
 > ```
 
 - `local`: content edited in the project
@@ -46,11 +46,11 @@ markers.
 
 ## Resolve the conflict
 
-1. Search the project for `<<<<<<< gh-linked-skills:local`.
+1. Search the project for `<<<<<<< gh-skill-linker:local`.
 2. Compare local, last synchronized, and source content.
 3. Rewrite the file with the content you want to keep.
 4. Remove all four marker types and unwanted content.
-5. Run `gh linked-skills status`.
+5. Run `gh skill-linker status`.
 
 For example, the final file may contain only:
 

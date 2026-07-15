@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/manifest"
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/source"
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/syncstate"
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/workspace"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/manifest"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/source"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/syncstate"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/workspace"
 )
 
 type fakeLister struct {
@@ -764,7 +764,7 @@ func TestInspectReportsWorkspaceSafetyEligibility(t *testing.T) {
 
 func TestInspectMakesGeneratedConflictIneligibleWithoutRemoteLookup(t *testing.T) {
 	entry := managed("sample", "/repo/sample")
-	marker := "||||||| gh-linked-skills:base:base-sha\n"
+	marker := "||||||| gh-skill-linker:base:base-sha\n"
 	reader := fakeLocalReader{byPath: map[string]workspace.LocalSkill{entry.Path: local(marker, false)}}
 
 	records, err := NewService(fakeLister{skills: []manifest.InstalledSkill{entry}}, reader, fakeRemote{err: errors.New("must not be called")}).Inspect(context.Background(), "/repo")

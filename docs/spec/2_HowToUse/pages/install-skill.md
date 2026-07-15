@@ -9,7 +9,7 @@ status: implemented
 Discover a skill in a repository and register it in the current project. Every
 installed skill remains linked to its source repository.
 
-Requirements: [gh-linked-skills installed](install-extension.md), a GitHub
+Requirements: [gh-skill-linker installed](install-extension.md), a GitHub
 token, and a Git repository.
 
 For GitHub.com, use credentials saved by `gh auth login` or a supported token
@@ -18,11 +18,11 @@ environment variable such as `GH_TOKEN`.
 Select either a `BRANCH` or a fixed-snapshot `TAG`.
 
 ```bash
-gh linked-skills install OWNER/REPO --branch BRANCH
-gh linked-skills install OWNER/REPO SKILL --branch BRANCH
-gh linked-skills install OWNER/REPO PATH --branch BRANCH
-gh linked-skills install OWNER/REPO --all --branch BRANCH
-gh linked-skills install OWNER/REPO SKILL --tag TAG
+gh skill-linker install OWNER/REPO --branch BRANCH
+gh skill-linker install OWNER/REPO SKILL --branch BRANCH
+gh skill-linker install OWNER/REPO PATH --branch BRANCH
+gh skill-linker install OWNER/REPO --all --branch BRANCH
+gh skill-linker install OWNER/REPO SKILL --tag TAG
 ```
 
 `OWNER/REPO` and exactly one of `--branch` or `--tag` are required. There is no
@@ -47,8 +47,8 @@ Without a selector, the command lists skill names and paths, then exits.
 directory must contain `SKILL.md` with `name` and `description` fields.
 
 ```bash
-gh linked-skills install obra/superpowers skills/brainstorming --branch main
-gh linked-skills install obra/superpowers skills/brainstorming/SKILL.md --branch main
+gh skill-linker install obra/superpowers skills/brainstorming --branch main
+gh skill-linker install obra/superpowers skills/brainstorming/SKILL.md --branch main
 ```
 
 These commands identify the same source. Files under `scripts/`, `references/`,
@@ -79,9 +79,9 @@ revision. The extension does not commit the parent project, so record the
 installation afterward:
 
 ```bash
-git add -- .agents/skills .gh-linked-skills.json
+git add -- .agents/skills .gh-skill-linker.json
 git commit
-gh linked-skills status
+gh skill-linker status
 ```
 
 `clean` confirms that the installation is complete.

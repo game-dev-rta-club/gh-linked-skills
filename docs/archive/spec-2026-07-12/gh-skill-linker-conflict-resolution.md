@@ -1,5 +1,5 @@
 ---
-title: Linked Skills manual conflict resolution
+title: Skill Linker manual conflict resolution
 updated: 2026-07-15
 status: archived
 ---
@@ -24,13 +24,13 @@ pull
 Markers use this format:
 
 ```text
- <<<<<<< gh-linked-skills:local
+ <<<<<<< gh-skill-linker:local
  local content
- ||||||| gh-linked-skills:base:<tree-sha>
+ ||||||| gh-skill-linker:base:<tree-sha>
  base content
  =======
  remote content
- >>>>>>> gh-linked-skills:remote:<tree-sha>
+ >>>>>>> gh-skill-linker:remote:<tree-sha>
 ```
 
 The user deletes marker lines and unwanted content, leaving only the final
@@ -45,5 +45,5 @@ resolution.
 
 ## Related
 
-- [Overview](gh-linked-skills.md)
-- [Functions](gh-linked-skills-functions.md)
+- [Overview](gh-skill-linker.md)
+- [Functions](gh-skill-linker-functions.md)

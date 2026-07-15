@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/source"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/source"
 )
 
 var (
@@ -48,7 +48,7 @@ func (c *Client) PublishSkill(
 		return PushResult{}, fmt.Errorf("%w: %s", ErrBranchMissing, branch)
 	}
 
-	directory, err := os.MkdirTemp("", "gh-linked-skills-publish-")
+	directory, err := os.MkdirTemp("", "gh-skill-linker-publish-")
 	if err != nil {
 		return PushResult{}, fmt.Errorf("create publish directory: %w", err)
 	}
@@ -95,8 +95,8 @@ func (c *Client) PublishSkill(
 	if _, stderr, err := c.runner.Run(
 		ctx,
 		"-C", checkout,
-		"-c", "user.name=gh-linked-skills",
-		"-c", "user.email=gh-linked-skills@users.noreply.github.com",
+		"-c", "user.name=gh-skill-linker",
+		"-c", "user.email=gh-skill-linker@users.noreply.github.com",
 		"commit", "-m", message, "--", cleanSkillPath,
 	); err != nil {
 		return PushResult{}, fmt.Errorf("commit published skill: %s: %w", commandDetail(stderr), err)

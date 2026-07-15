@@ -1,5 +1,5 @@
 ---
-title: Linked Skills implementation coverage
+title: Skill Linker implementation coverage
 updated: 2026-07-15
 status: implemented
 ---

@@ -4,7 +4,7 @@ import (
 	"context"
 	"os"
 
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/cli"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/cli"
 )
 
 func main() {

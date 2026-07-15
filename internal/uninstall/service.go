@@ -10,8 +10,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/manifest"
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/workspace"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/manifest"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/workspace"
 )
 
 type Registry interface {

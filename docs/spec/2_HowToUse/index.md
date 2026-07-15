@@ -1,10 +1,10 @@
 ---
-title: Linked Skills usage
+title: Skill Linker usage
 updated: 2026-07-15
 status: implemented
 ---
 
-# How to use Linked Skills
+# How to use Skill Linker
 
 This section is the source of truth for user-visible operations. Most users do
 not need to read beyond this layer.

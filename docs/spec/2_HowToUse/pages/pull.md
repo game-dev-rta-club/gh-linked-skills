@@ -10,7 +10,7 @@ Bring source changes into the local skill. If local content also changed, the
 command merges both sides from the last synchronized baseline.
 
 ```bash
-gh linked-skills pull <skill-name|project-relative-path>
+gh skill-linker pull <skill-name|project-relative-path>
 ```
 
 The skill must be managed by the manifest, every local file must be tracked in

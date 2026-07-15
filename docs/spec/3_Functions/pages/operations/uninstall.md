@@ -10,7 +10,7 @@ Remove a managed project-local skill without reading or changing remote state.
 
 ## UNIN-001 Selection
 
-Accept `gh linked-skills uninstall SKILL [--force]`. `SKILL` is a manifest key
+Accept `gh skill-linker uninstall SKILL [--force]`. `SKILL` is a manifest key
 or project-relative destination. Reject unmanaged skills.
 
 ## UNIN-002 Safety

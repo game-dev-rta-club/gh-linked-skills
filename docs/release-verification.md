@@ -1,14 +1,15 @@
 # Verifying release artifacts
 
-Releases from v0.5.3 onward are immutable and include SHA-256 checksums and
-signed GitHub build provenance. Use these steps when you need to verify a
-downloaded binary independently of `gh extension install`.
+Skill Linker releases from v0.6.0 onward are immutable and include SHA-256
+checksums and signed GitHub build provenance. Use these steps when you need to
+verify a downloaded binary independently of `gh extension install`. Earlier
+releases use the former extension and asset names.
 
 Set the release you want to verify and download it into an empty directory:
 
 ```sh
-version=v0.5.3
-gh release download "$version" --repo game-dev-rta-club/gh-linked-skills
+version=v0.6.0
+gh release download "$version" --repo game-dev-rta-club/gh-skill-linker
 ```
 
 On Linux, verify every checksum with:
@@ -27,10 +28,10 @@ Then verify that every asset was produced by this repository's release
 workflow from the requested tag on a GitHub-hosted runner:
 
 ```sh
-for asset in SHA256SUMS gh-linked-skills_"$version"_*; do
+for asset in SHA256SUMS gh-skill-linker_"$version"_*; do
   gh attestation verify "$asset" \
-    --repo game-dev-rta-club/gh-linked-skills \
-    --signer-workflow game-dev-rta-club/gh-linked-skills/.github/workflows/release.yml \
+    --repo game-dev-rta-club/gh-skill-linker \
+    --signer-workflow game-dev-rta-club/gh-skill-linker/.github/workflows/release.yml \
     --source-ref "refs/tags/$version" \
     --deny-self-hosted-runners
 done

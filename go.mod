@@ -1,4 +1,4 @@
-module github.com/game-dev-rta-club/gh-linked-skills
+module github.com/game-dev-rta-club/gh-skill-linker
 
 go 1.26.5
 

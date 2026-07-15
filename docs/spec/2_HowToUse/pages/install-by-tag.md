@@ -9,17 +9,17 @@ status: implemented
 Use a tag to install a skill as a fixed release snapshot.
 
 ```bash
-gh linked-skills install OWNER/REPO --tag TAG
-gh linked-skills install OWNER/REPO SKILL --tag TAG
-gh linked-skills install OWNER/REPO PATH --tag TAG
-gh linked-skills install OWNER/REPO --all --tag TAG
+gh skill-linker install OWNER/REPO --tag TAG
+gh skill-linker install OWNER/REPO SKILL --tag TAG
+gh skill-linker install OWNER/REPO PATH --tag TAG
+gh skill-linker install OWNER/REPO --all --tag TAG
 ```
 
 Exactly one of `--branch` and `--tag` is required. Tag names must match
 exactly.
 
 ```bash
-gh linked-skills install addyosmani/agent-skills \
+gh skill-linker install addyosmani/agent-skills \
   skills/code-review-and-quality \
   --tag 0.6.3
 ```
@@ -41,7 +41,7 @@ about local changes.
 Reinstall the same repository and path with a different tag.
 
 ```bash
-gh linked-skills install OWNER/REPO PATH --tag NEW_TAG
+gh skill-linker install OWNER/REPO PATH --tag NEW_TAG
 ```
 
 The tag changes only when all of these conditions hold:
@@ -58,7 +58,7 @@ If the tag name is unchanged but its ref SHA moved, the command rejects it as
 `tag_moved`. Accept the moved tag only through an explicit override:
 
 ```bash
-gh linked-skills install OWNER/REPO PATH \
+gh skill-linker install OWNER/REPO PATH \
   --tag TAG \
   --accept-moved-tag
 ```

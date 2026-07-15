@@ -1,5 +1,5 @@
 ---
-title: Linked Skills distribution and support
+title: Skill Linker distribution and support
 updated: 2026-07-15
 status: archived
 ---
@@ -8,12 +8,12 @@ status: archived
 
 ## Extension
 
-The repository, extension, and project names are all `gh-linked-skills`. Release
+The repository, extension, and project names are all `gh-skill-linker`. Release
 it as a precompiled Go GitHub CLI extension so users do not need a Go runtime.
 
 ```bash
-gh extension install game-dev-rta-club/gh-linked-skills
-gh extension upgrade game-dev-rta-club/gh-linked-skills
+gh extension install game-dev-rta-club/gh-skill-linker
+gh extension upgrade skill-linker
 ```
 
 Require an update before operation for GitHub CLI versions earlier than 2.96.0.
@@ -25,8 +25,8 @@ Embed the workflow skill in the extension binary and install it without an
 additional download.
 
 ```bash
-gh linked-skills skills install --agent codex
-gh linked-skills skills install --agent claude-code
+gh skill-linker skills install --agent codex
+gh skill-linker skills install --agent claude-code
 ```
 
 Provide project scope only. Running the same command after an extension upgrade
@@ -47,5 +47,5 @@ supported.
 
 ## Related
 
-- [Overview](gh-linked-skills.md)
-- [Implementation](gh-linked-skills-implementation.md)
+- [Overview](gh-skill-linker.md)
+- [Implementation](gh-skill-linker-implementation.md)

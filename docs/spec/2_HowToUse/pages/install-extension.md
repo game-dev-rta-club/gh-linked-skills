@@ -1,17 +1,17 @@
 ---
-title: Installing Linked Skills
+title: Installing Skill Linker
 updated: 2026-07-15
 status: implemented
 ---
 
-# Install Linked Skills
+# Install Skill Linker
 
-Install Linked Skills as a GitHub CLI extension.
+Install Skill Linker as a GitHub CLI extension.
 
 Requirements: macOS or Linux, `gh`, and Git.
 
 ```bash
-gh extension install game-dev-rta-club/gh-linked-skills
+gh extension install game-dev-rta-club/gh-skill-linker
 ```
 
 Windows and GitHub Enterprise Server are not officially supported.

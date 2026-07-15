@@ -1,5 +1,5 @@
 name: Bug report
-description: Report reproducible incorrect behavior in gh-linked-skills.
+description: Report reproducible incorrect behavior in gh-skill-linker.
 title: "[Bug]: "
 labels:
   - bug
@@ -28,7 +28,7 @@ body:
     id: command
     attributes:
       label: Command
-      placeholder: gh linked-skills status --json
+      placeholder: gh skill-linker status --json
     validations:
       required: true
   - type: textarea

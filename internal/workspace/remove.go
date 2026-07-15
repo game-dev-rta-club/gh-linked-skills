@@ -8,7 +8,7 @@ import (
 
 func RemoveSkill(target string, expected *LocalSkill, commit func() error) error {
 	target = filepath.Clean(target)
-	transaction, err := os.MkdirTemp(filepath.Dir(target), ".gh-linked-skills-uninstall-")
+	transaction, err := os.MkdirTemp(filepath.Dir(target), ".gh-skill-linker-uninstall-")
 	if err != nil {
 		return fmt.Errorf("create uninstall staging directory: %w", err)
 	}

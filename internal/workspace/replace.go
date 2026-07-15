@@ -10,7 +10,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/game-dev-rta-club/gh-linked-skills/internal/source"
+	"github.com/game-dev-rta-club/gh-skill-linker/internal/source"
 )
 
 var ErrWorkspaceChanged = errors.New("workspace changed during pull")
@@ -38,7 +38,7 @@ func replaceSkill(target string, remote source.SkillSnapshot, document []byte, e
 
 	target = filepath.Clean(target)
 	parent := filepath.Dir(target)
-	transaction, err := os.MkdirTemp(parent, ".gh-linked-skills-pull-")
+	transaction, err := os.MkdirTemp(parent, ".gh-skill-linker-pull-")
 	if err != nil {
 		return fmt.Errorf("create pull staging directory: %w", err)
 	}

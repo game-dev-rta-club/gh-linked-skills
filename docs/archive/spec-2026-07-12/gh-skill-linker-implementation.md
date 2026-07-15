@@ -1,5 +1,5 @@
 ---
-title: Linked Skills implementation plan
+title: Skill Linker implementation plan
 updated: 2026-07-15
 status: archived
 ---
@@ -22,7 +22,7 @@ tokens never appear in logs.
 
 ## Manifest
 
-Use `.gh-linked-skills.json` at the project root as the only management record.
+Use `.gh-skill-linker.json` at the project root as the only management record.
 Each managed skill stores repository, source path, branch, destination, and the
 last synchronized commit and subtree SHAs. A workflow skill stores agent,
 destination, bundle version, and SHA-256.
@@ -59,6 +59,6 @@ after every change.
 
 ## Related
 
-- [Overview](gh-linked-skills.md)
-- [Functions](gh-linked-skills-functions.md)
-- [Distribution and support](gh-linked-skills-distribution.md)
+- [Overview](gh-skill-linker.md)
+- [Functions](gh-skill-linker-functions.md)
+- [Distribution and support](gh-skill-linker-distribution.md)
