@@ -6,7 +6,9 @@ on:
       - "v*"
 
 permissions:
+  attestations: write
   contents: write
+  id-token: write
 
 jobs:
   release:
@@ -24,3 +26,14 @@ jobs:
         with:
           go_version_file: go.mod
           build_script_override: script/build-release.sh
+      - name: Generate checksums
+        working-directory: dist
+        run: sha256sum gh-linked-skills_* > SHA256SUMS
+      - name: Upload checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" dist/SHA256SUMS
+      - name: Attest release assets
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        with:
+          subject-path: dist/*
