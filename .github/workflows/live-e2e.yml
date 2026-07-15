@@ -47,6 +47,22 @@ jobs:
           remote_work="$RUNNER_TEMP/remote-work"
           binary="$RUNNER_TEMP/gh-skill-linker"
 
+          wait_for_state() {
+            expected="$1"
+            output="$2"
+            for _ in {1..20}; do
+              "$binary" status --json > "$output"
+              if jq --exit-status --arg expected "$expected" '.[0].state == $expected' "$output" >/dev/null; then
+                jq . "$output"
+                return 0
+              fi
+              sleep 1
+            done
+            jq . "$output"
+            echo "skill state did not become $expected after 20 attempts" >&2
+            return 1
+          }
+
           gh auth setup-git
           mkdir -p "$project"
           git -C "$project" init -b main
@@ -72,8 +88,8 @@ jobs:
           "$binary" status --json | tee "$RUNNER_TEMP/status-push.json"
           jq --exit-status '.[0].state == "push"' "$RUNNER_TEMP/status-push.json"
           "$binary" push e2e
-          "$binary" status --json | tee "$RUNNER_TEMP/status-after-push.json"
-          jq --exit-status '.[0].state == "clean"' "$RUNNER_TEMP/status-after-push.json"
+          # GitHub's GraphQL ref can briefly lag behind a successful Git push.
+          wait_for_state clean "$RUNNER_TEMP/status-after-push.json"
 
           git clone --branch "$BRANCH" --single-branch \
             "https://github.com/$GITHUB_REPOSITORY.git" "$remote_work"
@@ -85,11 +101,9 @@ jobs:
           git -C "$remote_work" commit -m "test: create remote pull"
           git -C "$remote_work" push origin "HEAD:refs/heads/$BRANCH"
 
-          "$binary" status --json | tee "$RUNNER_TEMP/status-pull.json"
-          jq --exit-status '.[0].state == "pull"' "$RUNNER_TEMP/status-pull.json"
+          wait_for_state pull "$RUNNER_TEMP/status-pull.json"
           "$binary" pull e2e
-          "$binary" status --json | tee "$RUNNER_TEMP/status-after-pull.json"
-          jq --exit-status '.[0].state == "clean"' "$RUNNER_TEMP/status-after-pull.json"
+          wait_for_state clean "$RUNNER_TEMP/status-after-pull.json"
 
           perl -pi -e 's/^Remote pull from GitHub Actions\.$/Local conflict from GitHub Actions./' \
             "$project/.agents/skills/e2e/SKILL.md"
