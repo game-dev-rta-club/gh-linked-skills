@@ -3,6 +3,7 @@ package status
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -100,9 +101,21 @@ func (f *blockingTreeRemote) ReadStatusPreflight(
 func (f *blockingTreeRemote) ReadRepositoryTree(
 	_ context.Context, _ Repository, revision string,
 ) (source.RepositoryTree, error) {
-	f.started <- revision
+	f.started <- "tree:" + revision
 	<-f.release
 	return f.trees[revision], nil
+}
+
+type blockingMixedRemote struct {
+	*blockingTreeRemote
+}
+
+func (f *blockingMixedRemote) ListPullRequests(
+	_ context.Context, repository source.Repository, _ proposal.ListOptions,
+) ([]proposal.PullRequest, error) {
+	f.started <- "proposal:" + repositoryKey(repository)
+	<-f.release
+	return nil, nil
 }
 
 func (f fakeRemote) ListPullRequests(
@@ -800,6 +813,75 @@ func TestInspectReadsChangedRepositoryTreesConcurrently(t *testing.T) {
 			<-done
 			t.Fatal("repository tree reads did not overlap")
 		}
+	}
+	close(release)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestInspectSharesConcurrencyLimitAcrossProposalAndTreeReads(t *testing.T) {
+	const repositoryCount = 5
+	skills := make([]manifest.InstalledSkill, 0, repositoryCount)
+	locals := make(map[string]workspace.LocalSkill, repositoryCount)
+	commits := make(map[string]string, repositoryCount)
+	trees := make(map[string]source.RepositoryTree, repositoryCount)
+	for index := range repositoryCount {
+		name := fmt.Sprintf("sample-%d", index)
+		entry := managed(name, "/repo/.agents/skills/"+name)
+		entry.Repository = fmt.Sprintf("https://github.com/owner/repo-%d.git", index)
+		entry.SourcePath = "skills/" + name
+		if index == repositoryCount-1 {
+			entry.SourceRef = "refs/tags/v1"
+		}
+		localSkill := namedLocal(entry.Name, "same\n", false)
+		setBaseline(&entry, localSkill)
+		commit := fmt.Sprintf("current-%d", index)
+		repository := fmt.Sprintf("owner/repo-%d", index)
+		skills = append(skills, entry)
+		locals[entry.Path] = localSkill
+		commits[repository] = commit
+		trees[commit] = repositoryTree(map[string]string{entry.SourcePath: entry.TreeSHA})
+	}
+
+	release := make(chan struct{})
+	started := make(chan string, 2*repositoryCount-1)
+	remote := &blockingMixedRemote{blockingTreeRemote: &blockingTreeRemote{
+		fakeRemote: fakeRemote{trees: trees},
+		commits:    commits,
+		started:    started,
+		release:    release,
+	}}
+	done := make(chan error, 1)
+	go func() {
+		_, err := NewService(
+			fakeLister{skills: skills}, fakeLocalReader{byPath: locals}, remote,
+		).Inspect(context.Background(), "/repo")
+		done <- err
+	}()
+
+	startedKinds := map[string]int{}
+	for count := 0; count < statusRemoteConcurrency; count++ {
+		select {
+		case call := <-started:
+			startedKinds[strings.SplitN(call, ":", 2)[0]]++
+		case <-time.After(5 * time.Second):
+			close(release)
+			<-done
+			t.Fatal("eight remote reads did not start")
+		}
+	}
+	if startedKinds["tree"] == 0 || startedKinds["proposal"] == 0 {
+		close(release)
+		<-done
+		t.Fatalf("started calls = %v, want both tree and proposal reads", startedKinds)
+	}
+	select {
+	case call := <-started:
+		close(release)
+		<-done
+		t.Fatalf("ninth remote read %q started before a shared slot was released", call)
+	case <-time.After(500 * time.Millisecond):
 	}
 	close(release)
 	if err := <-done; err != nil {
