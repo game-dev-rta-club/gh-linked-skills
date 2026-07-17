@@ -1,6 +1,6 @@
 ---
 title: Checking synchronization health
-updated: 2026-07-16
+updated: 2026-07-17
 status: implemented
 ---
 
@@ -67,6 +67,9 @@ even if file content is identical.
 | `diverged` | Proposal branch or metadata changed outside the extension |
 | `ambiguous` | More than one managed pull request exists |
 | `unknown` | Pull request lookup failed; file state remains valid |
+
+Proposal lookup is skipped only for confirmed read-only branch repositories.
+Those sources remain pullable but show no proposal state.
 
 | Reason | Response |
 | --- | --- |

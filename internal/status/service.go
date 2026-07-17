@@ -20,6 +20,8 @@ import (
 type Eligibility string
 
 const (
+	statusRemoteConcurrency = 8
+
 	Eligible   Eligibility = "eligible"
 	Ineligible Eligibility = "ineligible"
 	Unknown    Eligibility = "unknown"
@@ -192,8 +194,13 @@ func (s *Service) Inspect(ctx context.Context, projectRoot string) ([]Record, er
 	if len(requests) > 0 {
 		preflight = s.remote.ReadStatusPreflight(ctx, requests)
 	}
-	proposalResults := s.readProposals(ctx, prepared)
-	treeCache := make(map[repositoryRevision]treeResult)
+	remoteLimit := make(chan struct{}, statusRemoteConcurrency)
+	proposalResultsDone := make(chan map[string]proposalReadResult, 1)
+	go func() {
+		proposalResultsDone <- s.readProposals(ctx, prepared, preflight, remoteLimit)
+	}()
+	treeCache := s.readRepositoryTrees(ctx, prepared, preflight, remoteLimit)
+	proposalResults := <-proposalResultsDone
 	for _, skill := range prepared {
 		entry := skill.entry
 		record := skill.record
@@ -213,13 +220,16 @@ func (s *Service) Inspect(ctx context.Context, projectRoot string) ([]Record, er
 		remoteChanged := false
 		currentTreeSHA := entry.TreeSHA
 		if resolved.CommitSHA != entry.CommitSHA {
-			tree, treeErr := s.repositoryTree(ctx, treeCache, skill.repository, resolved.CommitSHA)
-			if treeErr != nil {
+			treeResult, found := treeCache[repositoryRevision{
+				repository: repositoryKey(skill.repository), revision: resolved.CommitSHA,
+			}]
+			if !found || treeResult.err != nil {
 				markRemoteUnknown(&record, "source_unavailable")
 				records = append(records, record)
 				continue
 			}
-			currentTreeSHA, treeErr = skillTreeSHA(tree, entry.SourcePath)
+			var treeErr error
+			currentTreeSHA, treeErr = skillTreeSHA(treeResult.tree, entry.SourcePath)
 			if treeErr != nil {
 				markRemoteUnknown(&record, "source_unavailable")
 				records = append(records, record)
@@ -316,11 +326,22 @@ type proposalReadResult struct {
 	err   error
 }
 
-func (s *Service) readProposals(ctx context.Context, skills []preparedSkill) map[string]proposalReadResult {
+func (s *Service) readProposals(
+	ctx context.Context,
+	skills []preparedSkill,
+	preflight map[string]PreflightResult,
+	remoteLimit chan struct{},
+) map[string]proposalReadResult {
 	repositories := make(map[string]Repository)
 	for _, skill := range skills {
-		if skill.ref.Kind == source.BranchRef {
-			repositories[repositoryKey(skill.repository)] = skill.repository
+		key := repositoryKey(skill.repository)
+		result, found := preflight[key]
+		if skill.ref.Kind != source.BranchRef {
+			continue
+		}
+		confirmedReadOnly := found && result.PermissionChecked && result.PermissionErr == nil && !result.CanPush
+		if !confirmedReadOnly {
+			repositories[key] = skill.repository
 		}
 	}
 	keys := make([]string, 0, len(repositories))
@@ -331,14 +352,13 @@ func (s *Service) readProposals(ctx context.Context, skills []preparedSkill) map
 	results := make(map[string]proposalReadResult, len(keys))
 	var mutex sync.Mutex
 	var wait sync.WaitGroup
-	limit := make(chan struct{}, 8)
 	for _, key := range keys {
 		key := key
 		wait.Add(1)
 		go func() {
 			defer wait.Done()
-			limit <- struct{}{}
-			defer func() { <-limit }()
+			remoteLimit <- struct{}{}
+			defer func() { <-remoteLimit }()
 			pulls, err := s.remote.ListPullRequests(
 				ctx, repositories[key], proposal.ListOptions{State: "open"},
 			)
@@ -370,6 +390,50 @@ type preparedSkill struct {
 	localDocumentErr error
 	pullSafety       string
 	pushSafety       string
+}
+
+func (s *Service) readRepositoryTrees(
+	ctx context.Context,
+	skills []preparedSkill,
+	preflight map[string]PreflightResult,
+	remoteLimit chan struct{},
+) map[repositoryRevision]treeResult {
+	requests := make(map[repositoryRevision]Repository)
+	for _, skill := range skills {
+		result, found := preflight[repositoryKey(skill.repository)]
+		if !found {
+			continue
+		}
+		resolved, found := result.Refs[skill.entry.SourceRef]
+		if !found || resolved.Err != nil || resolved.Resolved.CommitSHA == skill.entry.CommitSHA {
+			continue
+		}
+		key := repositoryRevision{
+			repository: repositoryKey(skill.repository),
+			revision:   resolved.Resolved.CommitSHA,
+		}
+		requests[key] = skill.repository
+	}
+
+	results := make(map[repositoryRevision]treeResult, len(requests))
+	var mutex sync.Mutex
+	var wait sync.WaitGroup
+	for key, repository := range requests {
+		key := key
+		repository := repository
+		wait.Add(1)
+		go func() {
+			defer wait.Done()
+			remoteLimit <- struct{}{}
+			defer func() { <-remoteLimit }()
+			tree, err := s.remote.ReadRepositoryTree(ctx, repository, key.revision)
+			mutex.Lock()
+			results[key] = treeResult{tree: tree, err: err}
+			mutex.Unlock()
+		}()
+	}
+	wait.Wait()
+	return results
 }
 
 func buildPreflightRequests(skills []preparedSkill) []PreflightRequest {
@@ -411,21 +475,6 @@ func buildPreflightRequests(skills []preparedSkill) []PreflightRequest {
 		})
 	}
 	return requests
-}
-
-func (s *Service) repositoryTree(
-	ctx context.Context,
-	cache map[repositoryRevision]treeResult,
-	repository Repository,
-	revision string,
-) (source.RepositoryTree, error) {
-	key := repositoryRevision{repository: repositoryKey(repository), revision: revision}
-	if result, ok := cache[key]; ok {
-		return result.tree, result.err
-	}
-	tree, err := s.remote.ReadRepositoryTree(ctx, repository, revision)
-	cache[key] = treeResult{tree: tree, err: err}
-	return tree, err
 }
 
 func repositoryKey(repository Repository) string {

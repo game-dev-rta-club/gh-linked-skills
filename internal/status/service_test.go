@@ -3,8 +3,11 @@ package status
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/game-dev-rta-club/gh-skill-linker/internal/manifest"
 	"github.com/game-dev-rta-club/gh-skill-linker/internal/proposal"
@@ -56,19 +59,74 @@ type fakeRemote struct {
 	pullCalls       *int
 }
 
+var fakeRemoteCounterMutex sync.Mutex
+
+func incrementFakeRemoteCounter(counter *int) {
+	if counter == nil {
+		return
+	}
+	fakeRemoteCounterMutex.Lock()
+	(*counter)++
+	fakeRemoteCounterMutex.Unlock()
+}
+
+type blockingTreeRemote struct {
+	fakeRemote
+	commits map[string]string
+	started chan string
+	release chan struct{}
+}
+
+func (f *blockingTreeRemote) ReadStatusPreflight(
+	_ context.Context, requests []PreflightRequest,
+) map[string]PreflightResult {
+	results := make(map[string]PreflightResult, len(requests))
+	for _, request := range requests {
+		commit := f.commits[repositoryKey(request.Repository)]
+		result := PreflightResult{
+			Refs:              make(map[string]PreflightRefResult, len(request.Refs)),
+			CanPush:           true,
+			PermissionChecked: true,
+		}
+		for _, ref := range request.Refs {
+			result.Refs[ref] = PreflightRefResult{Resolved: source.ResolvedRef{
+				RefSHA: commit, CommitSHA: commit,
+			}}
+		}
+		results[repositoryKey(request.Repository)] = result
+	}
+	return results
+}
+
+func (f *blockingTreeRemote) ReadRepositoryTree(
+	_ context.Context, _ Repository, revision string,
+) (source.RepositoryTree, error) {
+	f.started <- "tree:" + revision
+	<-f.release
+	return f.trees[revision], nil
+}
+
+type blockingMixedRemote struct {
+	*blockingTreeRemote
+}
+
+func (f *blockingMixedRemote) ListPullRequests(
+	_ context.Context, repository source.Repository, _ proposal.ListOptions,
+) ([]proposal.PullRequest, error) {
+	f.started <- "proposal:" + repositoryKey(repository)
+	<-f.release
+	return nil, nil
+}
+
 func (f fakeRemote) ListPullRequests(
 	context.Context, source.Repository, proposal.ListOptions,
 ) ([]proposal.PullRequest, error) {
-	if f.pullCalls != nil {
-		(*f.pullCalls)++
-	}
+	incrementFakeRemoteCounter(f.pullCalls)
 	return f.pulls, f.pullErr
 }
 
 func (f fakeRemote) ResolveSourceRef(_ context.Context, _ Repository, ref string) (source.ResolvedRef, error) {
-	if f.resolveCalls != nil {
-		(*f.resolveCalls)++
-	}
+	incrementFakeRemoteCounter(f.resolveCalls)
 	if f.err != nil {
 		return source.ResolvedRef{}, f.err
 	}
@@ -79,9 +137,7 @@ func (f fakeRemote) ResolveSourceRef(_ context.Context, _ Repository, ref string
 }
 
 func (f fakeRemote) ReadSkill(_ context.Context, _ Repository, _ string, revision string) (source.SkillSnapshot, error) {
-	if f.snapshotCalls != nil {
-		(*f.snapshotCalls)++
-	}
+	incrementFakeRemoteCounter(f.snapshotCalls)
 	if f.err != nil {
 		return source.SkillSnapshot{}, f.err
 	}
@@ -89,9 +145,7 @@ func (f fakeRemote) ReadSkill(_ context.Context, _ Repository, _ string, revisio
 }
 
 func (f fakeRemote) ReadRepositoryTree(_ context.Context, _ Repository, revision string) (source.RepositoryTree, error) {
-	if f.treeCalls != nil {
-		(*f.treeCalls)++
-	}
+	incrementFakeRemoteCounter(f.treeCalls)
 	if f.err != nil {
 		return source.RepositoryTree{}, f.err
 	}
@@ -106,9 +160,7 @@ func (f fakeRemote) ReadRepositoryTree(_ context.Context, _ Repository, revision
 }
 
 func (f fakeRemote) ReadRepositoryPermission(context.Context, Repository) (bool, error) {
-	if f.permissionCalls != nil {
-		(*f.permissionCalls)++
-	}
+	incrementFakeRemoteCounter(f.permissionCalls)
 	if f.err != nil {
 		return false, f.err
 	}
@@ -119,9 +171,7 @@ func (f fakeRemote) ReadRepositoryPermission(context.Context, Repository) (bool,
 }
 
 func (f fakeRemote) ReadStatusPreflight(ctx context.Context, requests []PreflightRequest) map[string]PreflightResult {
-	if f.preflightCalls != nil {
-		(*f.preflightCalls)++
-	}
+	incrementFakeRemoteCounter(f.preflightCalls)
 	results := make(map[string]PreflightResult, len(requests))
 	for _, request := range requests {
 		result := PreflightResult{Refs: make(map[string]PreflightRefResult)}
@@ -694,6 +744,151 @@ func TestInspectReportsReadOnlyRepository(t *testing.T) {
 	}
 }
 
+func TestInspectSkipsProposalLookupForReadOnlyRepository(t *testing.T) {
+	entry := managed("sample", "/repo/.agents/skills/sample")
+	base := snapshot("same\n", false, entry.TreeSHA)
+	pullCalls := 0
+	remote := fakeRemote{
+		snapshots: map[string]source.SkillSnapshot{
+			entry.TreeSHA: base, "refs/heads/main": base,
+		},
+		pullCalls: &pullCalls,
+	}
+
+	_, err := NewService(
+		fakeLister{skills: []manifest.InstalledSkill{entry}},
+		fakeLocalReader{byPath: map[string]workspace.LocalSkill{entry.Path: local("same\n", false)}},
+		remote,
+	).Inspect(context.Background(), "/repo")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pullCalls != 0 {
+		t.Fatalf("pull request lookup calls = %d, want 0 for read-only repository", pullCalls)
+	}
+}
+
+func TestInspectReadsChangedRepositoryTreesConcurrently(t *testing.T) {
+	first := managed("first", "/repo/.agents/skills/first")
+	first.Repository = "https://github.com/owner/first.git"
+	first.SourcePath = "skills/first"
+	firstLocal := namedLocal(first.Name, "same\n", false)
+	setBaseline(&first, firstLocal)
+	second := managed("second", "/repo/.agents/skills/second")
+	second.Repository = "https://github.com/owner/second.git"
+	second.SourcePath = "skills/second"
+	secondLocal := namedLocal(second.Name, "same\n", false)
+	setBaseline(&second, secondLocal)
+
+	release := make(chan struct{})
+	remote := &blockingTreeRemote{
+		fakeRemote: fakeRemote{trees: map[string]source.RepositoryTree{
+			"first-current":  repositoryTree(map[string]string{first.SourcePath: first.TreeSHA}),
+			"second-current": repositoryTree(map[string]string{second.SourcePath: second.TreeSHA}),
+		}},
+		commits: map[string]string{
+			"owner/first": "first-current", "owner/second": "second-current",
+		},
+		started: make(chan string, 2),
+		release: release,
+	}
+	done := make(chan error, 1)
+	go func() {
+		_, err := NewService(
+			fakeLister{skills: []manifest.InstalledSkill{first, second}},
+			fakeLocalReader{byPath: map[string]workspace.LocalSkill{
+				first.Path: firstLocal, second.Path: secondLocal,
+			}},
+			remote,
+		).Inspect(context.Background(), "/repo")
+		done <- err
+	}()
+
+	for count := 0; count < 2; count++ {
+		select {
+		case <-remote.started:
+		case <-time.After(5 * time.Second):
+			close(release)
+			<-done
+			t.Fatal("repository tree reads did not overlap")
+		}
+	}
+	close(release)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestInspectSharesConcurrencyLimitAcrossProposalAndTreeReads(t *testing.T) {
+	const repositoryCount = 5
+	skills := make([]manifest.InstalledSkill, 0, repositoryCount)
+	locals := make(map[string]workspace.LocalSkill, repositoryCount)
+	commits := make(map[string]string, repositoryCount)
+	trees := make(map[string]source.RepositoryTree, repositoryCount)
+	for index := range repositoryCount {
+		name := fmt.Sprintf("sample-%d", index)
+		entry := managed(name, "/repo/.agents/skills/"+name)
+		entry.Repository = fmt.Sprintf("https://github.com/owner/repo-%d.git", index)
+		entry.SourcePath = "skills/" + name
+		if index == repositoryCount-1 {
+			entry.SourceRef = "refs/tags/v1"
+		}
+		localSkill := namedLocal(entry.Name, "same\n", false)
+		setBaseline(&entry, localSkill)
+		commit := fmt.Sprintf("current-%d", index)
+		repository := fmt.Sprintf("owner/repo-%d", index)
+		skills = append(skills, entry)
+		locals[entry.Path] = localSkill
+		commits[repository] = commit
+		trees[commit] = repositoryTree(map[string]string{entry.SourcePath: entry.TreeSHA})
+	}
+
+	release := make(chan struct{})
+	started := make(chan string, 2*repositoryCount-1)
+	remote := &blockingMixedRemote{blockingTreeRemote: &blockingTreeRemote{
+		fakeRemote: fakeRemote{trees: trees},
+		commits:    commits,
+		started:    started,
+		release:    release,
+	}}
+	done := make(chan error, 1)
+	go func() {
+		_, err := NewService(
+			fakeLister{skills: skills}, fakeLocalReader{byPath: locals}, remote,
+		).Inspect(context.Background(), "/repo")
+		done <- err
+	}()
+
+	startedKinds := map[string]int{}
+	for count := 0; count < statusRemoteConcurrency; count++ {
+		select {
+		case call := <-started:
+			startedKinds[strings.SplitN(call, ":", 2)[0]]++
+		case <-time.After(5 * time.Second):
+			close(release)
+			<-done
+			t.Fatal("eight remote reads did not start")
+		}
+	}
+	if startedKinds["tree"] == 0 || startedKinds["proposal"] == 0 {
+		close(release)
+		<-done
+		t.Fatalf("started calls = %v, want both tree and proposal reads", startedKinds)
+	}
+	select {
+	case call := <-started:
+		close(release)
+		<-done
+		t.Fatalf("ninth remote read %q started before a shared slot was released", call)
+	case <-time.After(500 * time.Millisecond):
+	}
+	close(release)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestInspectReportsInvalidLocalDocumentAsPushIneligible(t *testing.T) {
 	entry := managed("sample", "/repo/.agents/skills/sample")
 	base := snapshot("same\n", false, entry.TreeSHA)
@@ -820,6 +1015,40 @@ func TestInspectShowsOpenProposalSeparatelyFromFileState(t *testing.T) {
 	}
 	if record.PushEligibility != Ineligible || value(record.PushReason) != "open_proposal" {
 		t.Fatalf("push = %s (%s)", record.PushEligibility, value(record.PushReason))
+	}
+}
+
+func TestInspectKeepsProposalVisibleWhenPermissionIsUnknown(t *testing.T) {
+	entry := managed("sample", "/repo/.agents/skills/sample")
+	localSkill := local("changed\n", false)
+	localTree, err := workspace.TreeSHA(localSkill.Files, localSkill.Executable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pull := statusPull(t, entry, localTree)
+	remote := fakeRemote{
+		resolutions: map[string]source.ResolvedRef{
+			entry.SourceRef: {RefSHA: entry.CommitSHA, CommitSHA: entry.CommitSHA},
+		},
+		permissionErr: errors.New("permission unavailable"),
+		pulls:         []proposal.PullRequest{pull},
+	}
+
+	records, err := NewService(
+		fakeLister{skills: []manifest.InstalledSkill{entry}},
+		fakeLocalReader{byPath: map[string]workspace.LocalSkill{entry.Path: localSkill}},
+		remote,
+	).Inspect(context.Background(), "/repo")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	record := records[0]
+	if record.Proposal == nil || record.Proposal.State != proposal.Waiting {
+		t.Fatalf("proposal = %#v, want waiting", record.Proposal)
+	}
+	if record.PushEligibility != Unknown || value(record.PushReason) != "permission_unknown" {
+		t.Fatalf("push = %q reason %v, want permission_unknown", record.PushEligibility, record.PushReason)
 	}
 }
 
