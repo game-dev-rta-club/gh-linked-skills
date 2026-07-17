@@ -83,8 +83,8 @@ FLAGS
   -h, --help            Show help for command
 
 EXAMPLES
-  $ gh skill-linker publish nikollson/agent-skills my-skill --branch main
-  $ gh skill-linker publish game-dev-rta-club/agent-skills my-skill --branch main --pr
+  $ gh skill-linker publish OWNER/my-skill my-skill --branch main
+  $ gh skill-linker publish OWNER/my-skill my-skill --branch main --pr
 
 LEARN MORE
   Run gh skill-linker status after publishing.

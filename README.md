@@ -19,7 +19,7 @@ Requirements: macOS or Linux, an authenticated
 
 ```sh
 gh extension install game-dev-rta-club/gh-skill-linker
-gh skill-linker install game-dev-rta-club/agent-skills --all --tag v1.0.0
+gh skill-linker install game-dev-rta-club/rubber-ducking-skill --all --tag v2.0.0
 gh skill-linker status
 ```
 
@@ -28,8 +28,8 @@ looks like this:
 
 ```text
 SKILL                 SCOPE    PROVIDER      SOURCE                               STATUS  PROPOSAL  PULL                           PUSH
-rubber-duck-caller    project  skill-linker  game-dev-rta-club/agent-skills@v1.0.0  clean   -         ineligible (fixed_source_ref)  ineligible (source_ref_read_only)
-rubber-duck-partner   project  skill-linker  game-dev-rta-club/agent-skills@v1.0.0  clean   -         ineligible (fixed_source_ref)  ineligible (source_ref_read_only)
+rubber-duck-caller    project  skill-linker  game-dev-rta-club/rubber-ducking-skill@v2.0.0  clean   -         ineligible (fixed_source_ref)  ineligible (source_ref_read_only)
+rubber-duck-partner   project  skill-linker  game-dev-rta-club/rubber-ducking-skill@v2.0.0  clean   -         ineligible (fixed_source_ref)  ineligible (source_ref_read_only)
 ```
 
 This is expected for a tag-backed install: the files are clean, while pull and
