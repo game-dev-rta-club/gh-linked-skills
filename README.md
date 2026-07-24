@@ -4,18 +4,23 @@
 [![Release](https://img.shields.io/github/v/release/game-dev-rta-club/gh-skill-linker)](https://github.com/game-dev-rta-club/gh-skill-linker/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**Keep Agent Skills close to the work—and connected to their source.**
+**Let every project make your Agent Skills better.**
 
-Skills get better inside real projects, but plain copies lose their history and
-symlinks hide what collaborators are running. `gh-skill-linker` copies
-reviewable skill files into your project and records their exact GitHub source,
-path, tag or branch, and synchronized revision.
+An Agent Skill often reveals its real gaps only while doing real work. But a
+fix made inside one project tends to stay there, while editing only the source
+misses lessons that emerge during use.
 
-Use fixed tags to share reviewed snapshots. Use branches to pull improvements
-in and return local changes directly or through a pull request. Local work is
-never silently overwritten.
+`gh-skill-linker` turns that dead-end copy into a visible feedback loop. It
+keeps a reviewable skill inside the local project, remembers its exact GitHub
+source and last synchronized revision, and lets improvements return so the next
+project can benefit from what the previous one learned.
 
-![A luminous chain connects a versioned source archive and a project folder while skill files move in both directions.](assets/skill-linker-hero.jpg)
+Install the extension once, then use skills as ordinary project files. Choose a
+tag for a fixed snapshot or a branch to exchange improvements. Before anything
+moves, `status` shows which side changed; divergent work is surfaced rather
+than silently overwritten.
+
+![A local project sends an improved SKILL file to its remote Git source and receives the shared version back.](assets/skill-linker-hero.png)
 
 `gh-skill-linker` is a standalone GitHub CLI extension for macOS and Linux. Its
 companion Agent Skill lives in this repository and teaches agents the same CLI
@@ -54,16 +59,25 @@ git commit -m "chore: install project agent skill"
 
 The extension does not commit the parent project for you.
 
-## Why Skill Linker
+## Design principle
 
-- **Visible:** Skills are ordinary project files. People and agents can inspect
-  the exact instructions in use.
-- **Reproducible:** The manifest records the source repository, path, ref, and
-  synchronized revision.
-- **Collaborative:** Improve a skill where you use it, then pull, push, or
-  propose the change back to its source.
-- **Protective:** Remote changes, local edits, fixed tags, and conflicts are
-  surfaced before they can replace work.
+Skills grow through use. Their source is where improvements can be shared, but
+the local project is where missing context, awkward instructions, and useful
+refinements become visible.
+
+Skill Linker keeps both sides useful instead of making you choose between them.
+The project contains the complete skill that people and agents can inspect,
+edit, and commit. The GitHub source remains the place that collects those
+lessons for the next project:
+
+```text
+GitHub source → local use → local improvement → GitHub source → next project
+```
+
+That loop needs a trustworthy point of comparison. Skill Linker records the
+last synchronized revision alongside the local copy, then compares that
+baseline with the current project and source. It can show whether to pull,
+push, or resolve a conflict without guessing which change should win.
 
 ## How it works
 
