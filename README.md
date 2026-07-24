@@ -6,39 +6,50 @@
 
 **Use Agent Skills locally. Return improvements to their GitHub source.**
 
-Agent Skills reveal what they are missing inside real projects. Keeping the
-skill as ordinary project files lets your agent use it, your team review it,
-and either of you improve it when the instructions fall short.
+`gh-skill-linker` is a GitHub CLI extension that copies an Agent Skill—a folder
+of instructions and supporting files—from GitHub into `.agents/skills/` in
+your project. The files stay visible and reviewable alongside the work.
 
-`gh-skill-linker` installs that local copy and records its exact GitHub source
-and last synchronized revision. Work with the skill in your project, then use
-`status`, `push`, or `push --pr` to return useful changes instead of leaving
-them behind in one project.
-
-Choose a tag for a fixed snapshot or a branch for two-way collaboration. If the
-local skill and its source both change, Skill Linker shows the difference
-instead of silently choosing which work to overwrite.
+`.gh-skill-linker.json` remembers where the copy came from. Install from a
+branch to improve the skill locally and return changes directly or through a
+pull request so another project can reuse them.
 
 ![A local project sends an improved SKILL file to its remote Git source and receives the shared version back.](assets/skill-linker-hero.png)
 
-`gh-skill-linker` is a standalone GitHub CLI extension for macOS and Linux. Its
-companion Agent Skill lives in this repository and teaches agents the same CLI
-workflow. Skill Linker and every source-skill repository are independent
-projects: linking a skill does not imply ownership, affiliation, or a runtime
-dependency between them.
-
 ## Quick start
 
-Requirements: an authenticated [GitHub CLI](https://cli.github.com/), system
-Git, and a Git project.
+Requirements:
+
+- macOS or Linux
+- an authenticated [GitHub CLI](https://cli.github.com/) and system Git
+- a Git project where the skill should be installed
+- an agent that reads project skills from `.agents/skills/`
+
+> Review an Agent Skill at its source before installing it. Skills are
+> instructions to an agent and should be treated as trusted code.
+
+Choose the source mode before installing:
+
+| Source | Choose it when | Behavior |
+| --- | --- | --- |
+| `--tag TAG` | Consuming a reviewed release | Fixed snapshot; pull and push are disabled |
+| `--branch BRANCH` | Authoring or collaborating | Tracks the branch; supports pull, push, and pull requests |
+
+Install the extension:
 
 ```sh
 gh extension install game-dev-rta-club/gh-skill-linker
+```
+
+This example uses this repository's
+[companion Agent Skill](skills/gh-skill-linker/), which teaches agents the same
+CLI workflow. Review it, then install it from `main` so changes can be returned.
+The first argument names the repository; the second selects the skill.
+
+```sh
 gh skill-linker install game-dev-rta-club/gh-skill-linker gh-skill-linker --branch main
 gh skill-linker status
 ```
-
-This self-contained example installs this repository's own companion skill:
 
 ```text
 your-project/
@@ -50,7 +61,6 @@ Review and commit both together so collaborators receive the same instructions
 and provenance:
 
 ```sh
-git status --short
 git add .agents/skills .gh-skill-linker.json
 git diff --cached
 git commit -m "chore: install project agent skill"
@@ -58,58 +68,50 @@ git commit -m "chore: install project agent skill"
 
 The extension does not commit the parent project for you.
 
-## Design principle
+## How synchronization works
 
-Skills grow through use. The local project is where missing context, awkward
-instructions, and useful refinements become visible. The GitHub source is
-where those improvements can be shared with the next project.
+For every managed skill, Skill Linker compares three versions:
 
-Skill Linker keeps both sides useful instead of making you choose between them.
-The project contains the complete skill that people and agents can inspect,
-edit, and commit. The GitHub source remains the place that collects those
-lessons for the next project:
+- the complete copy inside the current project
+- the revision recorded at the last successful synchronization
+- the current skill at the selected GitHub tag or branch
 
-```text
-use locally → improve locally → return to GitHub → reuse in another project
-```
+`status` summarizes that comparison:
 
-That loop needs a trustworthy point of comparison. Skill Linker records the
-last synchronized revision alongside the local copy, then compares that
-baseline with the current project and source. It can show whether to pull,
-push, or resolve a conflict without guessing which change should win.
-
-## How it works
-
-1. `install` copies a discovered skill into `.agents/skills/`.
-2. `.gh-skill-linker.json` records where that copy came from.
-3. `status` compares the project copy with its source and shows the next
-   eligible operation.
-4. Branch-backed skills can exchange changes with `pull`, `push`, or
-   `push --pr`. Tag-backed skills remain fixed snapshots.
-
-Skill Linker manages one project at a time. It is not a package registry,
-global skill manager, or hidden background service.
-
-## Choose a tag or branch
-
-| Source | Choose it when | Behavior |
+| Status | Meaning | Typical next step |
 | --- | --- | --- |
-| `--tag TAG` | Consuming a reviewed release | Fixed snapshot; pull and push are disabled |
-| `--branch BRANCH` | Authoring or collaborating | Tracks the branch; supports pull, push, and pull requests |
+| `clean` | Local and source content match | None |
+| `pull` | Only the source changed | `pull` |
+| `push` | Only the local skill changed | Review, then `push` or `push --pr` |
+| `conflict` | Both sides changed or conflict markers remain | Review and resolve |
 
-Start with a tag when you only need to use a skill. Choose a branch when you
-intend to return improvements to its source.
+`pull` brings source changes into the project and uses the recorded revision
+for a three-way merge. Returning changes requires write permission to the
+source repository:
 
 ```sh
-# Discover available skills without installing them.
-gh skill-linker install OWNER/REPO --tag TAG
+# After editing the installed companion skill:
+gh skill-linker status
+git diff -- .agents/skills/gh-skill-linker
+gh skill-linker push gh-skill-linker --pr
 
-# Install one reviewed skill.
-gh skill-linker install OWNER/REPO SKILL --tag TAG
-
-# Install one skill for two-way collaboration.
-gh skill-linker install OWNER/REPO SKILL --branch BRANCH
+# After the pull request is merged:
+gh skill-linker pull gh-skill-linker
+git add .agents/skills/gh-skill-linker .gh-skill-linker.json
 ```
+
+Direct `push` creates a normal commit on the tracked source branch.
+`push --pr` creates or updates a generated branch and pull request in that same
+repository. Skill Linker does not create forks, so a source without write
+permission is pull-only. If the source moves first, pushing stops so you can
+pull and review the changes. After a pull request is merged, `pull` records the
+new synchronization point; when the source already matches the local copy, it
+updates only that baseline.
+
+If a pull cannot merge text automatically, it leaves Git-style markers in the
+skill files. Resolve them and run `status` again. A resolved result reports
+`clean` when it matches the source or `push` when it still needs to be returned;
+you do not need to pull again.
 
 ## Common workflows
 
@@ -122,31 +124,34 @@ gh skill-linker install OWNER/REPO SKILL --branch BRANCH
 | Return a local change | `gh skill-linker push SKILL` |
 | Propose a local change | `gh skill-linker push SKILL --pr` |
 | Publish a new local skill | `gh skill-linker publish OWNER/REPO SKILL --branch BRANCH` |
-| Stop managing a skill | `gh skill-linker uninstall SKILL` |
+| Remove a managed local copy | `gh skill-linker uninstall SKILL` |
 
+Run `install OWNER/REPO` with a tag or branch but without `SKILL` to discover
+valid skills. Add a displayed name or path to install one, or use `--all`.
 Run `gh skill-linker <command> --help` for complete arguments and examples.
-See the [user guide](docs/user-guide.md) for tag upgrades, branch collaboration,
-conflict resolution, publishing, and removal.
 
-## Safety and limits
+## Scope and safety
 
-- Review every Agent Skill before installing it. Skills are instructions to an
-  agent and should be treated as trusted code.
-- A push stops when the source changed after the last synchronization.
 - Text conflicts remain visible as Git-style markers for manual resolution.
-- Tag-backed skills cannot pull or push.
-- The extension never force-pushes and never commits the parent project.
-
-Releases are immutable and include SHA-256 checksums and signed GitHub build
-provenance. See [Verifying release artifacts](docs/release-verification.md) and
-the [safety model](docs/spec/3_Functions/pages/architecture/safety-model.md).
-Report vulnerabilities privately through [SECURITY.md](SECURITY.md).
+- The extension never force-pushes or rebases proposal branches.
+- It manages multiple skills inside the current Git project. It is not a global
+  skill manager, package registry, or background service.
+- This repository's companion skill and every linked source-skill repository
+  are independent projects. Linking does not imply ownership, affiliation, or
+  a runtime dependency.
 
 ## Documentation
 
-The [documentation index](docs/README.md) links to the user guide, command
-documentation, design specifications, release verification, and migration
-notes.
+- [User guide](docs/user-guide.md): installation, collaboration, conflicts,
+  publishing, and removal
+- [Command and behavior documentation](docs/spec/2_HowToUse/index.md)
+- [Safety model](docs/spec/3_Functions/pages/architecture/safety-model.md)
+- [Verifying release artifacts](docs/release-verification.md): SHA-256
+  checksums and signed GitHub build provenance
+- [Documentation index](docs/README.md): design specifications and migration
+  notes
+
+Report vulnerabilities privately through [SECURITY.md](SECURITY.md).
 
 ## Community
 
