@@ -1,0 +1,4 @@
+interface:
+  display_name: "gh-skill-linker"
+  short_description: "Manage project Agent Skills with GitHub provenance"
+  default_prompt: "Use $gh-skill-linker to install this project’s Agent Skills from an explicit GitHub source and verify their state."

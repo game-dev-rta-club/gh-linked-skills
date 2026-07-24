@@ -52,7 +52,9 @@ jobs:
             output="$2"
             for _ in {1..20}; do
               "$binary" status --json > "$output"
-              if jq --exit-status --arg expected "$expected" '.[0].state == $expected' "$output" >/dev/null; then
+              if jq --exit-status --arg expected "$expected" \
+                'map(select(.skillName == "e2e")) | length == 1 and .[0].state == $expected' \
+                "$output" >/dev/null; then
                 jq . "$output"
                 return 0
               fi
@@ -71,22 +73,31 @@ jobs:
           cd "$project"
           "$binary" install game-dev-rta-club/gh-skill-linker --branch "$BRANCH" \
             | tee "$RUNNER_TEMP/discovered-skills.txt"
-          grep --fixed-strings --quiet 'e2e' "$RUNNER_TEMP/discovered-skills.txt"
-          grep --fixed-strings --quiet 'e2e-secondary' "$RUNNER_TEMP/discovered-skills.txt"
+          grep --fixed-strings --quiet 'gh-skill-linker' "$RUNNER_TEMP/discovered-skills.txt"
+          if grep --fixed-strings --quiet 'e2e' "$RUNNER_TEMP/discovered-skills.txt"; then
+            echo "hidden E2E fixture appeared in public discovery" >&2
+            exit 1
+          fi
           "$binary" install game-dev-rta-club/gh-skill-linker --all --branch "$BRANCH"
-          git add .agents/skills/e2e .agents/skills/e2e-secondary .gh-skill-linker.json
+          "$binary" install game-dev-rta-club/gh-skill-linker \
+            .test-fixtures/skills/e2e --branch "$BRANCH"
+          "$binary" install game-dev-rta-club/gh-skill-linker \
+            .test-fixtures/skills/e2e-secondary --branch "$BRANCH"
+          git add .agents/skills/gh-skill-linker .agents/skills/e2e \
+            .agents/skills/e2e-secondary .gh-skill-linker.json
           git commit -m "test: track installed fixture"
 
           "$binary" status --json | tee "$RUNNER_TEMP/status-clean.json"
           # GitHub App tokens have no user viewerPermission. In that case the
           # push command below proves writability with its dry-run fallback.
-          jq --exit-status 'length == 2 and all(.[]; .state == "clean" and (.pushEligibility == "eligible" or (.pushEligibility == "unknown" and .pushReason == "permission_unknown")))' \
+          jq --exit-status 'length == 3 and all(.[]; .state == "clean" and (.pushEligibility == "eligible" or (.pushEligibility == "unknown" and .pushReason == "permission_unknown")))' \
             "$RUNNER_TEMP/status-clean.json"
 
           perl -pi -e 's/^This file is intentionally small.*$/Live push from GitHub Actions./' \
             "$project/.agents/skills/e2e/SKILL.md"
           "$binary" status --json | tee "$RUNNER_TEMP/status-push.json"
-          jq --exit-status '.[0].state == "push"' "$RUNNER_TEMP/status-push.json"
+          jq --exit-status 'map(select(.skillName == "e2e")) | length == 1 and .[0].state == "push"' \
+            "$RUNNER_TEMP/status-push.json"
           "$binary" push e2e
           # GitHub's GraphQL ref can briefly lag behind a successful Git push.
           wait_for_state clean "$RUNNER_TEMP/status-after-push.json"
@@ -96,8 +107,8 @@ jobs:
           git -C "$remote_work" config user.name gh-skill-linker-e2e
           git -C "$remote_work" config user.email gh-skill-linker@users.noreply.github.com
           perl -pi -e 's/^Live push from GitHub Actions\.$/Remote pull from GitHub Actions./' \
-            "$remote_work/test-fixtures/skills/e2e/SKILL.md"
-          git -C "$remote_work" add test-fixtures/skills/e2e/SKILL.md
+            "$remote_work/.test-fixtures/skills/e2e/SKILL.md"
+          git -C "$remote_work" add .test-fixtures/skills/e2e/SKILL.md
           git -C "$remote_work" commit -m "test: create remote pull"
           git -C "$remote_work" push origin "HEAD:refs/heads/$BRANCH"
 
@@ -109,8 +120,8 @@ jobs:
             "$project/.agents/skills/e2e/SKILL.md"
           git -C "$remote_work" pull --ff-only
           perl -pi -e 's/^Remote pull from GitHub Actions\.$/Remote conflict from GitHub Actions./' \
-            "$remote_work/test-fixtures/skills/e2e/SKILL.md"
-          git -C "$remote_work" add test-fixtures/skills/e2e/SKILL.md
+            "$remote_work/.test-fixtures/skills/e2e/SKILL.md"
+          git -C "$remote_work" add .test-fixtures/skills/e2e/SKILL.md
           git -C "$remote_work" commit -m "test: create remote conflict"
           git -C "$remote_work" push origin "HEAD:refs/heads/$BRANCH"
 
@@ -121,7 +132,8 @@ jobs:
           grep --fixed-strings --quiet '<<<<<<< gh-skill-linker:local' \
             "$project/.agents/skills/e2e/SKILL.md"
           "$binary" status --json | tee "$RUNNER_TEMP/status-conflict.json"
-          jq --exit-status '.[0].state == "conflict"' "$RUNNER_TEMP/status-conflict.json"
+          jq --exit-status 'map(select(.skillName == "e2e")) | length == 1 and .[0].state == "conflict"' \
+            "$RUNNER_TEMP/status-conflict.json"
 
       - name: Record branch evidence
         if: always()

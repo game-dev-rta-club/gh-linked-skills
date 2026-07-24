@@ -4,6 +4,11 @@ Notable user-facing changes are recorded in this file.
 
 ## Unreleased
 
+- Added a companion Agent Skill that teaches agents the safe, project-local
+  `gh-skill-linker` workflow.
+- Reworked the README around visible skill files, explicit provenance, and the
+  improvement loop between a project and its GitHub source.
+
 ## 0.6.0 - 2026-07-15
 
 - Renamed the extension and command from `gh-linked-skills` / `gh linked-skills`
